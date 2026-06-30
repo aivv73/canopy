@@ -225,7 +225,72 @@ fn status_and_change_inspection_show_local_state() {
         .args(["change", "current"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Handle: change/inspect-me"));
+        .stdout(predicate::str::contains("Identity"))
+        .stdout(predicate::str::contains("Handle: change/inspect-me"))
+        .stdout(predicate::str::contains("Lifecycle"))
+        .stdout(predicate::str::contains("Active editing: yes"))
+        .stdout(predicate::str::contains("Workspace operations"))
+        .stdout(predicate::str::contains("Operations: 1"))
+        .stdout(predicate::str::contains("Operation summary:"))
+        .stdout(predicate::str::contains("Promotion proposal: none"));
+}
+
+#[test]
+fn richer_inspection_outputs_explain_change_history_and_doctor_state() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    fs::write(repo.join(".env"), "SECRET=abc\n").unwrap();
+
+    run(&repo, &["change", "start", "Richer inspection"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["file", "add", ".env", "--class", "secret"]);
+    run(&repo, &["change", "propose", "Richer inspection"]);
+    run(&repo, &["change", "accept", "Richer inspection"]);
+    run(
+        &repo,
+        &["change", "publish", "Richer inspection", "--to", "public"],
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Richer inspection"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Identity"))
+        .stdout(predicate::str::contains("Lifecycle"))
+        .stdout(predicate::str::contains("Active editing: yes"))
+        .stdout(predicate::str::contains("Operations: 2"))
+        .stdout(predicate::str::contains("Secret-class operations: 1"))
+        .stdout(predicate::str::contains("Public visibility: visible"))
+        .stdout(predicate::str::contains(
+            "Promotion proposal: 2 semantic deltas",
+        ));
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "public"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Projection history"))
+        .stdout(predicate::str::contains("Projection: public"))
+        .stdout(predicate::str::contains(
+            "History kind: accepted semantic deltas",
+        ))
+        .stdout(predicate::str::contains("Visibility: public"))
+        .stdout(predicate::str::contains("Changes shown: 1"))
+        .stdout(predicate::str::contains("add .env").not());
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Checks: local JSON state"))
+        .stdout(predicate::str::contains("Errors: 0"))
+        .stdout(predicate::str::contains("Warnings:"))
+        .stdout(predicate::str::contains("Hint: run `cnp change finish"));
 }
 
 #[test]

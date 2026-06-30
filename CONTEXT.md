@@ -428,6 +428,10 @@ _Avoid_: Blind push, last writer wins
 The default user-facing history shown by `cnp history`: projection semantic history made of visible changes and semantic deltas, not raw storage IDs or live workspace operations.
 _Avoid_: Commit log, raw operation log
 
+**Inspection view**:
+A human-facing CLI view that explains repository state, change intent, projection history, or diagnostics without making raw storage identities the primary model. Inspection views are not canonical history and may summarize or omit details according to projection and safety rules.
+_Avoid_: Raw database dump, object inspection
+
 **Edit session**:
 A user-friendly workflow that finds or creates a change, joins or creates an attached workspace, materializes it locally, and captures edits as workspace operations.
 _Avoid_: Checkout, branch switch

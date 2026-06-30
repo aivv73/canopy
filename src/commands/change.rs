@@ -63,8 +63,20 @@ pub fn show(change_ref: &str) -> Result<()> {
 
 fn show_by_handle(store: &LocalStore, handle: &str) -> Result<()> {
     let change = store.read_change(handle)?;
+    let meta = store.read_meta()?;
+    let ops = store.read_workspace_ops()?;
+    let change_ops: Vec<_> = ops
+        .ops
+        .iter()
+        .filter(|op| op.change == change.handle)
+        .collect();
+    let active = meta.active_change.as_deref() == Some(&change.handle);
+
+    println!("Identity");
     println!("Change: {}", change.name);
     println!("Handle: change/{}", change.handle);
+
+    println!("Lifecycle");
     println!("Status: {}", change.status);
     println!("Created at: {}", change.created_at.to_rfc3339());
     if let Some(t) = change.accepted_at {
@@ -76,14 +88,50 @@ fn show_by_handle(store: &LocalStore, handle: &str) -> Result<()> {
     if let Some(t) = change.disclosed_at {
         println!("Disclosed at: {}", t.to_rfc3339());
     }
+
+    println!("Active editing: {}", if active { "yes" } else { "no" });
+
+    println!("Workspace operations");
+    println!("Operations: {}", change_ops.len());
+    if !change_ops.is_empty() {
+        println!("Operation summary:");
+        for kind in [OpKind::Add, OpKind::Update, OpKind::Remove, OpKind::Rename] {
+            let count = change_ops.iter().filter(|op| op.kind == kind).count();
+            if count > 0 {
+                println!("  - {}: {}", kind.inspection_label(), count);
+            }
+        }
+        let secret_count = change_ops
+            .iter()
+            .filter(|op| !op.class.public_safe())
+            .count();
+        if secret_count > 0 {
+            println!("Secret-class operations: {}", secret_count);
+        }
+    }
+
+    println!("Visibility");
+    println!(
+        "Public visibility: {}",
+        if change.published_at.is_some() || change.disclosed_at.is_some() {
+            "visible"
+        } else {
+            "not visible"
+        }
+    );
+
+    println!("Promotion proposal");
     if let Some(proposal) = &change.proposal {
         println!(
             "Promotion proposal: {} semantic deltas",
             proposal.semantic_deltas.len()
         );
+        println!("Proposed at: {}", proposal.proposed_at.to_rfc3339());
         for delta in &proposal.semantic_deltas {
             println!("  - {}", delta.name);
         }
+    } else {
+        println!("Promotion proposal: none");
     }
     Ok(())
 }

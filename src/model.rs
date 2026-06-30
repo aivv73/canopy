@@ -88,7 +88,7 @@ pub struct WorkspaceOp {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OpKind {
     #[serde(rename = "add-file")]
@@ -99,6 +99,17 @@ pub enum OpKind {
     Remove,
     #[serde(rename = "rename-file")]
     Rename,
+}
+
+impl OpKind {
+    pub fn inspection_label(&self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Update => "update",
+            Self::Remove => "remove",
+            Self::Rename => "rename",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

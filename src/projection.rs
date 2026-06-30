@@ -6,11 +6,22 @@
 //! virtual-tree contents.
 
 use crate::{
-    model::{ChangeStatus, FileEntry, OpKind, Projection, VirtualTree, WorkspaceOps},
+    model::{
+        ChangeStatus, FileEntry, OpKind, Projection, SemanticDelta, VirtualTree, WorkspaceOps,
+    },
     storage::LocalStore,
 };
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
 use std::collections::BTreeMap;
+
+pub struct ProjectedHistoryChange {
+    pub name: String,
+    pub handle: String,
+    pub status: ChangeStatus,
+    pub visible_at: Option<DateTime<Utc>>,
+    pub deltas: Vec<SemanticDelta>,
+}
 
 /// Replays non-abandoned workspace operations into the private virtual-tree cache.
 pub fn private_tree_from_workspace(store: &LocalStore) -> Result<VirtualTree> {
@@ -68,6 +79,54 @@ pub fn private_tree_from_workspace(store: &LocalStore) -> Result<VirtualTree> {
 pub fn rebuild_private_virtual_tree(store: &LocalStore) -> Result<()> {
     let tree = private_tree_from_workspace(store)?;
     store.write_virtual_tree(&tree)
+}
+
+/// Computes accepted semantic history visible through the requested projection.
+pub fn projected_history(
+    store: &LocalStore,
+    projection: Projection,
+) -> Result<Vec<ProjectedHistoryChange>> {
+    let mut changes = store.load_changes()?;
+    changes.sort_by_key(|c| c.created_at);
+    let mut projected = Vec::new();
+    for change in changes {
+        if change.status != ChangeStatus::Accepted {
+            continue;
+        }
+        if projection == Projection::Public
+            && change.published_at.is_none()
+            && change.disclosed_at.is_none()
+        {
+            continue;
+        }
+        let Some(proposal) = &change.proposal else {
+            continue;
+        };
+        let deltas: Vec<_> = proposal
+            .semantic_deltas
+            .iter()
+            .filter(|d| projection == Projection::Private || d.class.public_safe())
+            .cloned()
+            .collect();
+        if deltas.is_empty() {
+            continue;
+        }
+        let visible_at = match projection {
+            Projection::Public => change
+                .disclosed_at
+                .or(change.published_at)
+                .or(change.accepted_at),
+            Projection::Private => change.accepted_at,
+        };
+        projected.push(ProjectedHistoryChange {
+            name: change.name,
+            handle: change.handle,
+            status: change.status,
+            visible_at,
+            deltas,
+        });
+    }
+    Ok(projected)
 }
 
 /// Computes already-filtered materialization entries for a projection.

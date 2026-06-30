@@ -16,11 +16,11 @@ local virtual tree
 
 - `cnp init [path]` creates a local `.canopy/` repository.
 - `cnp status` shows repository status, storage format, the active change, and captured workspace operation count.
-- `cnp doctor` validates local JSON state and reports errors/warnings without repairing it.
+- `cnp doctor` validates local JSON state and reports grouped errors, warnings, and selected next-action hints without repairing it.
 - `cnp change start <name>` creates an active change.
 - `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
 - `cnp change abandon <change>` marks an unaccepted change as abandoned intent history, hides it from default change lists, and removes its effects from current private materialization.
-- `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `--all` includes abandoned changes.
+- `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `--all` includes abandoned changes. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
 - `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
 - `cnp file remove <path>` records an explicit removal operation.
@@ -29,7 +29,7 @@ local virtual tree
 - `cnp change accept <change>` accepts the proposal into project history.
 - `cnp change publish <change> --to public` makes public-safe deltas visible in public history.
 - `cnp change disclose <change> --to public` exists as the MVP shape for future disclosure semantics.
-- `cnp history --projection public|private` shows semantic projection history.
+- `cnp history --projection public|private` shows semantic projection history with a projection header, lifecycle visibility fields, and visible semantic deltas.
 - `cnp projection materialize public|private <out-dir>` writes a filesystem view explicitly.
 
 ## Change abandonment
@@ -74,7 +74,13 @@ These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; t
 
 ## Diagnostics
 
-`cnp doctor` checks local state for the MVP storage format, active-change references, workspace operation references, virtual path validity, virtual tree readability, and basic change readability. It reports errors and warnings and exits non-zero when errors are found. It does not automatically repair repositories.
+`cnp doctor` checks local state for the MVP storage format, active-change references, workspace operation references, virtual path validity, virtual tree readability, and basic change readability. It reports grouped errors and warnings, includes selected hints for lifecycle problems such as accepted or visible changes remaining active, and exits non-zero when errors are found. It does not automatically repair repositories.
+
+## Inspection views
+
+The MVP inspection commands are human-facing explanations rather than machine-stable APIs. `cnp change show` summarizes the change intent, lifecycle, active editing association, workspace operation counts, visibility, and promotion proposal. It keeps detailed workspace operation listings out of the default view while still surfacing secret-class operation counts for local awareness.
+
+`cnp history --projection public|private` remains projection semantic history: abandoned changes and raw workspace operations are not shown. Public history continues to omit secret semantic deltas and secret paths.
 
 ## Out of scope
 

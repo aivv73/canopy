@@ -35,6 +35,8 @@ cnp show change/oauth-cleanup --ops
 
 `cnp history` shows projection semantic history, not raw operation logs or storage IDs.
 
+Inspection output is human-facing. `cnp history` should identify the projection being viewed and show visible semantic deltas. `cnp show`/`cnp change show` should explain change identity, lifecycle, active editing association, visibility, and proposal state without turning raw workspace operations or storage identities into the primary model.
+
 Canopy accepts human names, structured refs, and shell-friendly handles, resolving them internally to stable composite references.
 
 ## Change-first editing
@@ -98,6 +100,8 @@ cnp conflict resolve conflict/oauth-issuer-rename
 ```
 
 Status, CI checks, logs, artifacts, and conflict details are all policy-filtered.
+
+`cnp doctor` is a diagnostic inspection view: it groups errors and warnings, offers selected next-action hints, and does not silently repair repository state.
 
 ## Policy, governance, and capabilities
 

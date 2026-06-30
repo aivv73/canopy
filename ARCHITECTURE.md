@@ -16,6 +16,12 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 
 Abandoned changes are retained intent history for unaccepted work, not physical deletion. The MVP keeps `active` as the draft-like status name and adds `abandoned` as a terminal state for active/proposed changes. Default change lists hide abandoned changes, `--all` exposes them, proposals are retained for explanation, and private virtual tree replay excludes abandoned workspace effects. Accepted, published, and disclosed changes cannot be abandoned.
 
+## Inspection views
+
+Change, history, and doctor inspection output is human-facing CLI explanation, not a machine-stable API or canonical storage dump. Inspection commands may summarize lifecycle, visibility, operation counts, and diagnostic hints, but they should keep semantic Canopy concepts primary and avoid exposing raw storage identities as the user model.
+
+Projection-specific inspection, especially public history, must use the same projection visibility rules as materialization: public output includes only accepted published/disclosed public-safe semantic deltas and must not reveal secret paths, hidden counts, or private-only effects.
+
 ## Active change lifecycle
 
 The active change is a repository metadata pointer that decides where new workspace operations are recorded. `cnp change finish <change>` clears that pointer when the named change is currently active. Finishing does not change the change status, proposal data, accepted semantic deltas, publication/disclosure metadata, public/private history, or materialization semantics.

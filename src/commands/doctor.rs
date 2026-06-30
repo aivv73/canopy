@@ -13,6 +13,7 @@ pub fn run() -> Result<()> {
         "MVP secret privacy is projection filtering over plaintext local JSON, not encryption"
             .to_string(),
     ];
+    let mut hints = Vec::new();
     let mut active_handle = None;
     match store.read_meta() {
         Ok(meta) => {
@@ -20,6 +21,7 @@ pub fn run() -> Result<()> {
                 active_handle = Some(active.clone());
                 if !store.change_path(active).exists() {
                     errors.push(format!("active change does not exist: change/{}", active));
+                    hints.push("repair `.canopy/repo.json` or restore the missing change record before continuing local edits".to_string());
                 }
             }
         }
@@ -40,12 +42,18 @@ pub fn run() -> Result<()> {
                     "active change points to abandoned change/{}",
                     active
                 ));
+                hints.push(format!(
+                    "clear the active change with local state repair or start a different change after inspecting change/{}",
+                    active
+                ));
             }
             if change.status == ChangeStatus::Accepted {
                 warnings.push(format!("accepted change is still active; run `cnp change finish change/{}` when editing is complete", active));
+                hints.push(format!("run `cnp change finish change/{}` when editing for that accepted change is complete", active));
             }
             if change.published_at.is_some() || change.disclosed_at.is_some() {
                 warnings.push(format!("published/disclosed change is still active; run `cnp change finish change/{}` when editing is complete", active));
+                hints.push(format!("run `cnp change finish change/{}` to return the repository to no active change", active));
             }
         }
     }
@@ -57,6 +65,10 @@ pub fn run() -> Result<()> {
         {
             errors.push(format!(
                 "abandoned change has accepted/published/disclosed metadata: change/{}",
+                change.handle
+            ));
+            hints.push(format!(
+                "inspect change/{} and repair the impossible abandoned lifecycle metadata before relying on history output",
                 change.handle
             ));
         }
@@ -84,16 +96,27 @@ pub fn run() -> Result<()> {
         Err(e) => errors.push(format!("cannot read virtual tree: {e}")),
     }
     println!("Canopy doctor");
+    println!("Checks: local JSON state, change lifecycle, virtual paths, private tree replay");
     if errors.is_empty() {
         println!("Status: healthy");
     } else {
         println!("Status: errors found");
-        for error in &errors {
-            println!("Error: {}", error);
-        }
     }
+    println!("Errors: {}", errors.len());
+    for error in &errors {
+        println!("Error: {}", error);
+    }
+    println!("Warnings: {}", warnings.len());
     for warning in warnings.drain(..) {
         println!("Warning: {}", warning);
+    }
+    if !hints.is_empty() {
+        hints.sort();
+        hints.dedup();
+        println!("Hints:");
+        for hint in hints {
+            println!("Hint: {}", hint);
+        }
     }
     if errors.is_empty() {
         Ok(())
