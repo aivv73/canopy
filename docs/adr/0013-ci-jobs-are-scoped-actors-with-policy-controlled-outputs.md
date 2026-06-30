@@ -1,0 +1,3 @@
+# CI jobs are scoped actors with policy-controlled outputs
+
+Canopy treats CI jobs as compromised scoped actors by default, not as fully trusted repository readers. Each CI job runs inside a CI domain with purpose-scoped, expiry-limited capabilities over a signed CI input view, which may be a projection, workspace, integration workspace, promotion proposal, or materialized virtual tree. CI outputs are policy-controlled channels: statuses, logs, artifacts, annotations, caches, timing, and failure categories inherit their CI domain by default, use projection-scoped cache keys, and require policy-approved redaction before publication to broader audiences.

@@ -1,0 +1,3 @@
+# Cryptographic access follows policy boundaries
+
+Canopy protects private repository data with layered encryption domains rather than one repository-wide key or server-side ACLs alone. Capability sets combine cryptographic material with policy claims such as audience, projection, workspace, purpose, and expiry, and may derive narrower purpose-scoped capabilities for agents, CI jobs, workspaces, or integrations. Canopy uses hierarchical keying and key wrapping so access can be granted, rotated, or revoked at policy-relevant boundaries; revocation is forward by default, with stronger retention-assisted revocation or cryptographic erasure available by policy, while already-observed data cannot be made secret again.

@@ -1,0 +1,3 @@
+# Clone bootstraps trust before materialization
+
+Canopy `cnp clone` establishes trust in a repository identity rather than treating a hosting URL as the repository identity. Clone uses a trust bundle containing repository identity, projection signer information, policy roots, and optional scoped invitation capabilities; public bootstrap may use trust on first use with identity-change warnings, while private access requires an invitation capability or verified trust bundle. The default local result is a verified projection package, not a filesystem checkout or live workspace subscription; materialization and workspace subscription are explicit requests.

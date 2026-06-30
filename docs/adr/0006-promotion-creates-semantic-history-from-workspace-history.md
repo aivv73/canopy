@@ -1,0 +1,3 @@
+# Promotion creates semantic history from workspace history
+
+Canopy treats live workspace operations as durable process history, but promotion creates clean semantic deltas rather than requiring canonical history to preserve every intermediate operation. A promotion proposal may be produced by a human, agent, or tool from workspace history, with optional derived-from links back to retained operations. The proposal enters projection or canonical history only through policy-governed promotion acceptance, and policy may require exact operation preservation in contexts that need stronger auditability.

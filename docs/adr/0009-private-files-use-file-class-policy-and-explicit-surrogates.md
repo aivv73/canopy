@@ -1,0 +1,3 @@
+# Private files use file-class policy and explicit surrogates
+
+Canopy treats private files as policy-controlled file objects whose path, content, metadata, lifecycle, retention, and surrogate behavior may differ by file class. Secret files such as `.env` hide both path and content from unauthorized projections by default, while public-safe substitutes such as `.env.example` are explicit surrogate files in the projection rather than leaked placeholders. Surrogates are created manually or through accepted surrogate proposals, and derivation from private content requires a policy-approved redactor.

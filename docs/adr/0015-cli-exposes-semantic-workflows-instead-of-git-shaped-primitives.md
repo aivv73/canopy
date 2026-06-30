@@ -1,0 +1,3 @@
+# CLI exposes semantic workflows instead of Git-shaped primitives
+
+Canopy's CLI should avoid making raw storage IDs, commits, branches, remotes, push, pull, checkout, or worktrees the primary user model. Users inspect projection semantic history with `cnp history`, enter work through change-first edit sessions, refer to objects through resolved composite references and shell-friendly handles, transfer authorised data with `cnp sync`, and change audience visibility with explicit publish or disclosure commands. Low-level commands for materialization, workspace operations, policies, and capabilities remain available, but common workflows should present semantic concepts first.

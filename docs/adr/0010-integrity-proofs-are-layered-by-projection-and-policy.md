@@ -1,0 +1,3 @@
+# Integrity proofs are layered by projection and policy
+
+Canopy uses layered signatures for canonical objects, promotion acceptances, governance events, projection manifests, and capability grants rather than relying on a single commit-signature model. Projection manifests are signed descriptions of the semantic history visible to an audience, allowing clients to verify a coherent projection without learning hidden canonical graph structure. Public projection manifests may be signed by a projection signer so integrity can be attested without exposing private author identities, private signing events, or hidden history.

@@ -1,0 +1,3 @@
+# Private projections must not leak hidden history
+
+Canopy public projections present a coherent, independently buildable and mergeable repository view that does not reveal the existence, structure, timing, or effects of unauthorized changes. When embargoed or private changes later need to become visible, the embargo owner reconciles conflicts in an integration workspace before disclosure, rather than making public contributors resolve conflicts caused by history they could not see. Integration workspaces expose minimum authorized provenance by default, with additional context available only through provenance escalation and any required policy or reviewer gates.

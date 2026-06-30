@@ -1,0 +1,3 @@
+# Workspaces replicate convergent operations with policy-governed acceptance
+
+Canopy workspaces use a layered operation model: low-level convergent operations maintain virtual tree and content state, while optional semantic edit and provenance layers record intent for promotion and review. Replicated state converges mechanically, but semantic, integration, and policy conflicts are represented as first-class conflict objects with their own resolution lifecycle. Workspace operations enter durable workspace history only through operation authorization, validation, and acceptance; suspicious operations may be quarantined, capabilities may impose operation limits, and offline operation queues are reconciled through policy rather than blindly accepted.
