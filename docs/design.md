@@ -50,11 +50,13 @@ The first Rust implementation is tested through high-level CLI integration tests
 Current coverage focuses on:
 
 - initializing a local repository;
-- starting, proposing, accepting, and publishing changes;
-- recording explicit `file add` operations with public/config-template/secret classes;
+- starting, proposing, accepting, publishing, listing, and inspecting changes;
+- inspecting repository status and promotion proposals;
+- recording explicit `file add`, `file update`, `file remove`, and `file rename` operations with public/config-template/secret classes;
+- running lightweight `doctor` diagnostics for healthy state and representative storage-format errors;
 - omitting secret paths from public history and public materialization;
 - including secret paths in private history and private materialization;
-- preventing unpublished public-safe draft files from appearing in public materializations;
+- preventing unpublished public-safe draft files and unpublished private updates to public paths from appearing in public materializations;
 - rejecting invalid virtual paths and unsafe materialization targets.
 
-This is not a substitute for later storage-corruption, migration, remote-sync, authorization, or cryptographic privacy tests.
+This lightweight diagnostics coverage is not a substitute for later migration, recovery, remote-sync, authorization, authenticated-storage, or cryptographic privacy tests.

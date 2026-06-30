@@ -43,6 +43,8 @@ enum Command {
         #[command(subcommand)]
         command: FileCommand,
     },
+    Status,
+    Doctor,
     History {
         #[arg(long, value_enum)]
         projection: Projection,
@@ -57,6 +59,14 @@ enum Command {
 enum ChangeCommand {
     Start {
         name: String,
+    },
+    List,
+    Show {
+        change: String,
+    },
+    Current,
+    Proposal {
+        change: String,
     },
     Propose {
         change: String,
@@ -79,6 +89,9 @@ enum ChangeCommand {
 #[derive(Subcommand)]
 enum FileCommand {
     Add(FileAdd),
+    Update(FileUpdate),
+    Remove(FileRemove),
+    Rename(FileRename),
 }
 
 #[derive(Args)]
@@ -86,6 +99,26 @@ struct FileAdd {
     path: PathBuf,
     #[arg(long = "class", value_enum, default_value_t = FileClass::PublicSource)]
     class: FileClass,
+}
+
+#[derive(Args)]
+struct FileUpdate {
+    path: PathBuf,
+    #[arg(long = "class", value_enum)]
+    class: Option<FileClass>,
+}
+
+#[derive(Args)]
+struct FileRemove {
+    path: PathBuf,
+}
+
+#[derive(Args)]
+struct FileRename {
+    old_path: PathBuf,
+    new_path: PathBuf,
+    #[arg(long = "class", value_enum)]
+    class: Option<FileClass>,
 }
 
 #[derive(Subcommand)]
@@ -163,13 +196,23 @@ struct WorkspaceOps {
     ops: Vec<WorkspaceOp>,
 }
 
+/// A captured workspace operation.
+///
+/// Field contract by operation kind:
+/// - add/update: `path`, `content`, and resulting `class` are present.
+/// - remove: `path` and previous `class` are present; `content` is absent.
+/// - rename: `path` is the old path, `new_path` is the new path, and `class`
+///   is the resulting class; `content` is replayed from prior projection state.
 #[derive(Clone, Serialize, Deserialize)]
 struct WorkspaceOp {
     id: u64,
     change: String,
     kind: OpKind,
     path: String,
-    content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    new_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
     class: FileClass,
     created_at: DateTime<Utc>,
 }
@@ -177,7 +220,14 @@ struct WorkspaceOp {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum OpKind {
-    AddFile,
+    #[serde(rename = "add-file")]
+    Add,
+    #[serde(rename = "update-file")]
+    Update,
+    #[serde(rename = "remove-file")]
+    Remove,
+    #[serde(rename = "rename-file")]
+    Rename,
 }
 
 /// Temporary persisted change record under `.canopy/changes/`.
@@ -201,6 +251,16 @@ enum ChangeStatus {
     Accepted,
 }
 
+impl std::fmt::Display for ChangeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Active => "active",
+            Self::Proposed => "proposed",
+            Self::Accepted => "accepted",
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct PromotionProposal {
     semantic_deltas: Vec<SemanticDelta>,
@@ -208,11 +268,19 @@ struct PromotionProposal {
     proposed_at: DateTime<Utc>,
 }
 
+/// A promoted semantic delta. The optional payload fields follow the same
+/// operation-kind contract as `WorkspaceOp` and are persisted so public
+/// materialization can replay published semantic state instead of reading the
+/// current private virtual tree.
 #[derive(Clone, Serialize, Deserialize)]
 struct SemanticDelta {
     name: String,
     kind: OpKind,
     path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    new_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
     class: FileClass,
 }
 
@@ -221,6 +289,10 @@ fn main() -> Result<()> {
         Command::Init { path } => init(path),
         Command::Change { command } => match command {
             ChangeCommand::Start { name } => change_start(&name),
+            ChangeCommand::List => change_list(),
+            ChangeCommand::Show { change } => change_show(&change),
+            ChangeCommand::Current => change_current(),
+            ChangeCommand::Proposal { change } => proposal_show(&change),
             ChangeCommand::Propose { change } => change_propose(&change),
             ChangeCommand::Accept { change } => change_accept(&change),
             ChangeCommand::Publish { change, to } => {
@@ -232,7 +304,12 @@ fn main() -> Result<()> {
         },
         Command::File { command } => match command {
             FileCommand::Add(args) => file_add(args),
+            FileCommand::Update(args) => file_update(args),
+            FileCommand::Remove(args) => file_remove(args),
+            FileCommand::Rename(args) => file_rename(args),
         },
+        Command::Status => status(),
+        Command::Doctor => doctor(),
         Command::History { projection } => history(projection),
         Command::Projection { command } => match command {
             ProjectionCommand::Materialize {
@@ -304,12 +381,98 @@ fn change_start(name: &str) -> Result<()> {
     Ok(())
 }
 
+fn status() -> Result<()> {
+    let root = repo_root()?;
+    let meta = read_repo_meta(&root)?;
+    let ops: WorkspaceOps = read_json(&root.join("workspace-ops.json"))?;
+    println!("Canopy repository: {}", meta.name);
+    println!("Format: {}", meta.format);
+    match &meta.active_change {
+        Some(handle) => {
+            println!("Active change: change/{}", handle);
+            let count = ops.ops.iter().filter(|op| &op.change == handle).count();
+            println!("Workspace operations: {}", count);
+        }
+        None => println!("Active change: none"),
+    }
+    Ok(())
+}
+
+fn change_list() -> Result<()> {
+    let root = repo_root()?;
+    let mut changes = load_changes(&root)?;
+    changes.sort_by_key(|c| c.created_at);
+    for change in changes {
+        println!(
+            "{}\tchange/{}\t{}",
+            change.name, change.handle, change.status
+        );
+    }
+    Ok(())
+}
+
+fn change_current() -> Result<()> {
+    let root = repo_root()?;
+    let handle = active_change(&root)?;
+    show_change_by_handle(&root, &handle)
+}
+
+fn change_show(change_ref: &str) -> Result<()> {
+    let root = repo_root()?;
+    let handle = resolve_change_handle(change_ref);
+    show_change_by_handle(&root, &handle)
+}
+
+fn show_change_by_handle(root: &Path, handle: &str) -> Result<()> {
+    let change: Change = read_json(&change_path(root, handle))?;
+    println!("Change: {}", change.name);
+    println!("Handle: change/{}", change.handle);
+    println!("Status: {}", change.status);
+    println!("Created at: {}", change.created_at.to_rfc3339());
+    if let Some(t) = change.accepted_at {
+        println!("Accepted at: {}", t.to_rfc3339());
+    }
+    if let Some(t) = change.published_at {
+        println!("Published at: {}", t.to_rfc3339());
+    }
+    if let Some(t) = change.disclosed_at {
+        println!("Disclosed at: {}", t.to_rfc3339());
+    }
+    if let Some(proposal) = &change.proposal {
+        println!(
+            "Promotion proposal: {} semantic deltas",
+            proposal.semantic_deltas.len()
+        );
+        for delta in &proposal.semantic_deltas {
+            println!("  - {}", delta.name);
+        }
+    }
+    Ok(())
+}
+
+fn proposal_show(change_ref: &str) -> Result<()> {
+    let root = repo_root()?;
+    let handle = resolve_change_handle(change_ref);
+    let change: Change = read_json(&change_path(&root, &handle))?;
+    let Some(proposal) = change.proposal else {
+        bail!("change/{} has no promotion proposal", handle);
+    };
+    println!("Promotion proposal for change: {}", change.name);
+    println!("Proposed at: {}", proposal.proposed_at.to_rfc3339());
+    println!(
+        "Derived from workspace operations: {:?}",
+        proposal.derived_from
+    );
+    println!("Semantic deltas:");
+    for delta in proposal.semantic_deltas {
+        println!("  - {}", delta.name);
+    }
+    Ok(())
+}
+
 fn file_add(args: FileAdd) -> Result<()> {
     let root = repo_root()?;
-    let meta: RepoMeta = read_json(&root.join("repo.json"))?;
-    let change = meta
-        .active_change
-        .ok_or_else(|| anyhow!("no active change; run `cnp change start <name>` first"))?;
+    let change = active_change(&root)?;
     let rel = normalize_rel(&args.path)?;
     let content =
         fs::read_to_string(&args.path).with_context(|| format!("read {}", args.path.display()))?;
@@ -324,24 +487,170 @@ fn file_add(args: FileAdd) -> Result<()> {
         },
     );
     write_json(&root.join("virtual-tree.json"), &tree)?;
-    let mut ops: WorkspaceOps = read_json(&root.join("workspace-ops.json"))?;
-    let id = ops.ops.iter().map(|op| op.id).max().unwrap_or(0) + 1;
-    ops.ops.push(WorkspaceOp {
-        id,
-        change,
-        kind: OpKind::AddFile,
-        path: rel.clone(),
-        content,
-        class: args.class.clone(),
-        created_at: now,
-    });
-    write_json(&root.join("workspace-ops.json"), &ops)?;
+    record_op(
+        &root,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Add,
+            path: rel.clone(),
+            new_path: None,
+            content: Some(content),
+            class: args.class.clone(),
+            created_at: now,
+        },
+    )?;
     println!("Added file: {}", rel);
     println!("Class: {}", args.class);
-    if matches!(args.class, FileClass::Secret) {
+    warn_secret(&args.class);
+    Ok(())
+}
+
+fn file_update(args: FileUpdate) -> Result<()> {
+    let root = repo_root()?;
+    let change = active_change(&root)?;
+    let rel = normalize_rel(&args.path)?;
+    let content =
+        fs::read_to_string(&args.path).with_context(|| format!("read {}", args.path.display()))?;
+    let now = Utc::now();
+    let mut tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
+    let existing = tree
+        .files
+        .get(&rel)
+        .ok_or_else(|| anyhow!("cannot update unknown virtual file: {}", rel))?;
+    let class = args.class.unwrap_or_else(|| existing.class.clone());
+    if matches!(existing.class, FileClass::Secret) && class.public_safe() {
+        bail!(
+            "cannot reclassify secret file as public-safe during update: {}",
+            rel
+        );
+    }
+    tree.files.insert(
+        rel.clone(),
+        FileEntry {
+            content: content.clone(),
+            class: class.clone(),
+            updated_at: now,
+        },
+    );
+    write_json(&root.join("virtual-tree.json"), &tree)?;
+    record_op(
+        &root,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Update,
+            path: rel.clone(),
+            new_path: None,
+            content: Some(content),
+            class: class.clone(),
+            created_at: now,
+        },
+    )?;
+    println!("Updated file: {}", rel);
+    println!("Class: {}", class);
+    warn_secret(&class);
+    Ok(())
+}
+
+fn file_remove(args: FileRemove) -> Result<()> {
+    let root = repo_root()?;
+    let change = active_change(&root)?;
+    let rel = normalize_rel(&args.path)?;
+    let now = Utc::now();
+    let mut tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
+    let removed = tree
+        .files
+        .remove(&rel)
+        .ok_or_else(|| anyhow!("cannot remove unknown virtual file: {}", rel))?;
+    write_json(&root.join("virtual-tree.json"), &tree)?;
+    record_op(
+        &root,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Remove,
+            path: rel.clone(),
+            new_path: None,
+            content: None,
+            class: removed.class.clone(),
+            created_at: now,
+        },
+    )?;
+    println!("Removed file: {}", rel);
+    println!("Class: {}", removed.class);
+    warn_secret(&removed.class);
+    Ok(())
+}
+
+fn file_rename(args: FileRename) -> Result<()> {
+    let root = repo_root()?;
+    let change = active_change(&root)?;
+    let old = normalize_rel(&args.old_path)?;
+    let new = normalize_rel(&args.new_path)?;
+    if old == new {
+        bail!("rename source and destination are the same: {}", old);
+    }
+    let now = Utc::now();
+    let mut tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
+    if tree.files.contains_key(&new) {
+        bail!("cannot rename over existing virtual file: {}", new);
+    }
+    let mut entry = tree
+        .files
+        .remove(&old)
+        .ok_or_else(|| anyhow!("cannot rename unknown virtual file: {}", old))?;
+    if matches!(entry.class, FileClass::Secret)
+        && args.class.as_ref().is_some_and(FileClass::public_safe)
+    {
+        bail!(
+            "cannot reclassify secret file as public-safe during rename: {}",
+            old
+        );
+    }
+    if let Some(class) = args.class {
+        entry.class = class;
+    }
+    entry.updated_at = now;
+    let class = entry.class.clone();
+    tree.files.insert(new.clone(), entry);
+    write_json(&root.join("virtual-tree.json"), &tree)?;
+    record_op(
+        &root,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Rename,
+            path: old.clone(),
+            new_path: Some(new.clone()),
+            content: None,
+            class: class.clone(),
+            created_at: now,
+        },
+    )?;
+    println!("Renamed file: {} -> {}", old, new);
+    println!("Class: {}", class);
+    warn_secret(&class);
+    Ok(())
+}
+
+fn active_change(root: &Path) -> Result<String> {
+    let meta: RepoMeta = read_repo_meta(root)?;
+    meta.active_change
+        .ok_or_else(|| anyhow!("no active change; run `cnp change start <name>` first"))
+}
+
+fn record_op(root: &Path, mut op: WorkspaceOp) -> Result<()> {
+    let mut ops: WorkspaceOps = read_json(&root.join("workspace-ops.json"))?;
+    op.id = ops.ops.iter().map(|op| op.id).max().unwrap_or(0) + 1;
+    ops.ops.push(op);
+    write_json(&root.join("workspace-ops.json"), &ops)
+}
+
+fn warn_secret(class: &FileClass) {
+    if matches!(class, FileClass::Secret) {
         println!("Warning: Canopy MVP stores secret files in plaintext under .canopy/. They are hidden from public projections but not encrypted at rest.");
     }
-    Ok(())
 }
 
 fn change_propose(change_ref: &str) -> Result<()> {
@@ -364,6 +673,8 @@ fn change_propose(change_ref: &str) -> Result<()> {
             name: delta_name(op),
             kind: op.kind.clone(),
             path: op.path.clone(),
+            new_path: op.new_path.clone(),
+            content: op.content.clone(),
             class: op.class.clone(),
         })
         .collect();
@@ -476,18 +787,14 @@ fn history(projection: Projection) -> Result<()> {
 
 fn materialize(projection: Projection, out_dir: &Path) -> Result<()> {
     let root = repo_root()?;
-    let tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
-    let visible_paths = materialized_paths(&root, projection)?;
+    let entries = materialized_entries(&root, projection)?;
     prepare_materialization_dir(out_dir)?;
-    for path in visible_paths {
-        let Some(entry) = tree.files.get(&path) else {
-            continue;
-        };
+    for (path, content) in entries {
         let dest = safe_materialization_path(out_dir, &path)?;
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(dest, &entry.content)?;
+        fs::write(dest, content)?;
     }
     fs::write(out_dir.join(".canopy-materialized"), MATERIALIZATION_MARKER)?;
     println!(
@@ -498,13 +805,20 @@ fn materialize(projection: Projection, out_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn materialized_paths(root: &Path, projection: Projection) -> Result<Vec<String>> {
-    let tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
+fn materialized_entries(root: &Path, projection: Projection) -> Result<BTreeMap<String, String>> {
     if projection == Projection::Private {
-        return Ok(tree.files.keys().cloned().collect());
+        let tree: VirtualTree = read_json(&root.join("virtual-tree.json"))?;
+        return Ok(tree
+            .files
+            .into_iter()
+            .map(|(path, entry)| (path, entry.content))
+            .collect());
     }
-    let mut paths = Vec::new();
-    for change in load_changes(root)? {
+
+    let mut entries = BTreeMap::new();
+    let mut changes = load_changes(root)?;
+    changes.sort_by_key(|c| c.created_at);
+    for change in changes {
         if change.status != ChangeStatus::Accepted
             || (change.published_at.is_none() && change.disclosed_at.is_none())
         {
@@ -514,14 +828,29 @@ fn materialized_paths(root: &Path, projection: Projection) -> Result<Vec<String>
             continue;
         };
         for delta in proposal.semantic_deltas {
-            if delta.class.public_safe() && tree.files.contains_key(&delta.path) {
-                paths.push(delta.path);
+            if !delta.class.public_safe() {
+                continue;
+            }
+            match delta.kind {
+                OpKind::Add | OpKind::Update => {
+                    if let Some(content) = delta.content {
+                        entries.insert(delta.path, content);
+                    }
+                }
+                OpKind::Remove => {
+                    entries.remove(&delta.path);
+                }
+                OpKind::Rename => {
+                    if let Some(new_path) = delta.new_path {
+                        if let Some(content) = entries.remove(&delta.path) {
+                            entries.insert(new_path, content);
+                        }
+                    }
+                }
             }
         }
     }
-    paths.sort();
-    paths.dedup();
-    Ok(paths)
+    Ok(entries)
 }
 
 fn prepare_materialization_dir(out_dir: &Path) -> Result<()> {
@@ -561,6 +890,92 @@ fn prepare_materialization_dir(out_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+fn doctor() -> Result<()> {
+    let root = repo_root()?;
+    let mut errors = Vec::new();
+    let mut warnings = vec![
+        "MVP secret privacy is projection filtering over plaintext local JSON, not encryption"
+            .to_string(),
+    ];
+
+    match read_repo_meta(&root) {
+        Ok(meta) => {
+            if let Some(active) = &meta.active_change {
+                if !change_path(&root, active).exists() {
+                    errors.push(format!("active change does not exist: change/{}", active));
+                }
+            }
+        }
+        Err(e) => errors.push(e.to_string()),
+    }
+
+    let changes = match load_changes(&root) {
+        Ok(changes) => changes,
+        Err(e) => {
+            errors.push(format!("cannot read changes: {e}"));
+            Vec::new()
+        }
+    };
+    let change_handles: Vec<_> = changes.iter().map(|c| c.handle.clone()).collect();
+
+    match read_json::<WorkspaceOps>(&root.join("workspace-ops.json")) {
+        Ok(ops) => {
+            for op in ops.ops {
+                if !change_handles.contains(&op.change) {
+                    errors.push(format!(
+                        "workspace operation {} references missing change/{}",
+                        op.id, op.change
+                    ));
+                }
+                if let Err(e) = validate_virtual_path(&op.path) {
+                    errors.push(format!(
+                        "workspace operation {} has invalid path: {e}",
+                        op.id
+                    ));
+                }
+                if let Some(new_path) = &op.new_path {
+                    if let Err(e) = validate_virtual_path(new_path) {
+                        errors.push(format!(
+                            "workspace operation {} has invalid new path: {e}",
+                            op.id
+                        ));
+                    }
+                }
+            }
+        }
+        Err(e) => errors.push(format!("cannot read workspace operations: {e}")),
+    }
+
+    match read_json::<VirtualTree>(&root.join("virtual-tree.json")) {
+        Ok(tree) => {
+            for path in tree.files.keys() {
+                if let Err(e) = validate_virtual_path(path) {
+                    errors.push(format!("virtual tree has invalid path: {e}"));
+                }
+            }
+        }
+        Err(e) => errors.push(format!("cannot read virtual tree: {e}")),
+    }
+
+    println!("Canopy doctor");
+    if errors.is_empty() {
+        println!("Status: healthy");
+    } else {
+        println!("Status: errors found");
+        for error in &errors {
+            println!("Error: {}", error);
+        }
+    }
+    for warning in warnings.drain(..) {
+        println!("Warning: {}", warning);
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        bail!("doctor found {} error(s)", errors.len())
+    }
+}
+
 fn safe_materialization_path(out_dir: &Path, virtual_path: &str) -> Result<PathBuf> {
     validate_virtual_path(virtual_path)?;
     Ok(out_dir.join(virtual_path))
@@ -596,7 +1011,14 @@ fn slug(s: &str) -> String {
 }
 fn delta_name(op: &WorkspaceOp) -> String {
     match op.kind {
-        OpKind::AddFile => format!("add {}", op.path),
+        OpKind::Add => format!("add {}", op.path),
+        OpKind::Update => format!("update {}", op.path),
+        OpKind::Remove => format!("remove {}", op.path),
+        OpKind::Rename => format!(
+            "rename {} to {}",
+            op.path,
+            op.new_path.as_deref().unwrap_or("<missing>")
+        ),
     }
 }
 fn normalize_rel(path: &Path) -> Result<String> {
@@ -637,10 +1059,21 @@ fn load_changes(root: &Path) -> Result<Vec<Change>> {
     Ok(out)
 }
 
+fn read_repo_meta(root: &Path) -> Result<RepoMeta> {
+    let meta: RepoMeta = read_json(&root.join("repo.json"))?;
+    if meta.format != FORMAT {
+        bail!(
+            "unsupported Canopy storage format `{}`; this cnp supports `{}`",
+            meta.format,
+            FORMAT
+        );
+    }
+    Ok(meta)
+}
+
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
-    Ok(serde_json::from_str(
-        &fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?,
-    )?)
+    let content = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    serde_json::from_str(&content).with_context(|| format!("parse JSON state {}", path.display()))
 }
 fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let tmp = path.with_extension("json.tmp");

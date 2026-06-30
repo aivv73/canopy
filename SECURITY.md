@@ -8,6 +8,7 @@ Canopy is currently an MVP/prototype. The implemented `cnp` command is local-onl
 - File content classified as `secret` is stored in plaintext in `.canopy/virtual-tree.json` and `.canopy/workspace-ops.json`.
 - Public/private separation is projection filtering only. It is not encryption, access control, sandboxing, or tamper resistance.
 - `cnp projection materialize public ...` omits secret paths and unpublished changes from the materialized public tree and public history, but does not erase the private source data.
+- Public materialization is reconstructed only from accepted and published/disclosed proposal data, never from unpublished private virtual-tree content.
 
 ## Filesystem mutation rules
 
@@ -20,7 +21,7 @@ Canopy is currently an MVP/prototype. The implemented `cnp` command is local-onl
 
 - JSON state writes use write-then-rename for individual state files.
 - Cross-file updates are not transactional in this MVP.
-- There is no schema migration, corruption recovery, or authenticated storage yet.
+- There is no schema migration, corruption recovery, or authenticated storage yet. The diagnostic command reports local consistency problems but does not repair them.
 
 ## Out of scope for this MVP
 

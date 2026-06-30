@@ -15,8 +15,14 @@ local virtual tree
 ## What the MVP supports
 
 - `cnp init [path]` creates a local `.canopy/` repository.
+- `cnp status` shows repository status, storage format, the active change, and captured workspace operation count.
+- `cnp doctor` validates local JSON state and reports errors/warnings without repairing it.
 - `cnp change start <name>` creates an active change.
+- `cnp change list|show|current|proposal` inspect changes and promotion proposals by named references.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
+- `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
+- `cnp file remove <path>` records an explicit removal operation.
+- `cnp file rename <old-path> <new-path> [--class public-source|config-template|secret]` records an explicit rename operation.
 - `cnp change propose <change>` creates semantic deltas from workspace operations.
 - `cnp change accept <change>` accepts the proposal into project history.
 - `cnp change publish <change> --to public` makes public-safe deltas visible in public history.
@@ -34,7 +40,11 @@ Cryptographic enforcement, encryption domains, signatures, capabilities, key rot
 
 ## Storage
 
-The MVP stores readable JSON under `.canopy/` so the model can be inspected and changed quickly. JSON storage is temporary and may be replaced by SQLite, content-addressed storage, or another persistence layer later.
+The MVP stores readable JSON under `.canopy/` so the model can be inspected and changed quickly. JSON storage is temporary and may be replaced by SQLite, content-addressed storage, or another persistence layer later. The CLI rejects unsupported repository format values and reports missing or corrupt JSON state with the affected state file path. Cross-file updates are still not transactional.
+
+## Diagnostics
+
+`cnp doctor` checks local state for the MVP storage format, active-change references, workspace operation references, virtual path validity, virtual tree readability, and basic change readability. It reports errors and warnings and exits non-zero when errors are found. It does not automatically repair repositories.
 
 ## Out of scope
 

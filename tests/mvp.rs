@@ -197,3 +197,171 @@ fn materialization_rejects_invalid_marker() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("invalid Canopy marker"));
 }
+
+#[test]
+fn status_and_change_inspection_show_local_state() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    run(&repo, &["change", "start", "Inspect me"]);
+    run(&repo, &["file", "add", "README.md"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active change: change/inspect-me"))
+        .stdout(predicate::str::contains("Workspace operations: 1"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Inspect me"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "current"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Handle: change/inspect-me"));
+}
+
+#[test]
+fn update_remove_and_rename_flow_through_projections() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "v1\n").unwrap();
+    fs::write(repo.join("notes.txt"), "notes\n").unwrap();
+    fs::write(repo.join("secret.txt"), "SECRET\n").unwrap();
+
+    run(&repo, &["change", "start", "Lifecycle"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["file", "add", "notes.txt"]);
+    run(&repo, &["file", "add", "secret.txt", "--class", "secret"]);
+    fs::write(repo.join("README.md"), "v2\n").unwrap();
+    run(&repo, &["file", "update", "README.md"]);
+    run(&repo, &["file", "rename", "README.md", "README2.md"]);
+    run(&repo, &["file", "remove", "notes.txt"]);
+    run(&repo, &["change", "propose", "Lifecycle"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "proposal", "Lifecycle"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("update README.md"))
+        .stdout(predicate::str::contains("rename README.md to README2.md"))
+        .stdout(predicate::str::contains("remove notes.txt"));
+    run(&repo, &["change", "accept", "Lifecycle"]);
+    run(&repo, &["change", "publish", "Lifecycle", "--to", "public"]);
+
+    let public = temp.path().join("public-life");
+    let private = temp.path().join("private-life");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "public",
+            public.to_str().unwrap(),
+        ],
+    );
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(public.join("README2.md")).unwrap(),
+        "v2\n"
+    );
+    assert!(!public.join("README.md").exists());
+    assert!(!public.join("notes.txt").exists());
+    assert!(!public.join("secret.txt").exists());
+    assert!(private.join("secret.txt").exists());
+}
+
+#[test]
+fn doctor_reports_health_and_storage_errors() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Status: healthy"))
+        .stdout(predicate::str::contains("plaintext local JSON"));
+
+    fs::write(
+        repo.join(".canopy/repo.json"),
+        "{\"name\":\"demo\",\"format\":\"future\",\"active_change\":null}\n",
+    )
+    .unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "unsupported Canopy storage format",
+        ));
+}
+
+#[test]
+fn public_materialization_does_not_read_unpublished_private_tree_state() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "public\n").unwrap();
+
+    run(&repo, &["change", "start", "Published readme"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["change", "propose", "Published readme"]);
+    run(&repo, &["change", "accept", "Published readme"]);
+    run(
+        &repo,
+        &["change", "publish", "Published readme", "--to", "public"],
+    );
+
+    fs::write(repo.join("README.md"), "draft secret\n").unwrap();
+    run(&repo, &["change", "start", "Unpublished secret edit"]);
+    run(&repo, &["file", "update", "README.md", "--class", "secret"]);
+
+    let public = temp.path().join("public-stable");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "public",
+            public.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(public.join("README.md")).unwrap(),
+        "public\n"
+    );
+
+    let private = temp.path().join("private-draft");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(private.join("README.md")).unwrap(),
+        "draft secret\n"
+    );
+}
