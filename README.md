@@ -23,5 +23,3 @@ the idea that unfinished features shouldn’t be public, like semi-open source
 -We’re getting rid of worktrees altogether -The VCS doesn’t involve a real OS/filesystem—it’s more like “just-bash” -Compatibility with Git isn’t needed; we’d have to rely on it too much otherwise -We’ll
 write all of this in Rust to make it trendy and youthful. Name: Canopy. CLI: cnp
 In fact, this is an experiment to see how far we can go using agent-based development
-
-Translated with DeepL.com (free version)
