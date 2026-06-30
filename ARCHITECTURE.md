@@ -1,6 +1,6 @@
 # Canopy MVP implementation map
 
-The current implementation is a deliberately small Rust CLI in `src/main.rs`.
+The current implementation is a deliberately small Rust CLI under `src/`, with `main.rs` as a thin entrypoint.
 It is a vertical slice for the first GitHub issues, not the target architecture.
 
 ## Command surface
@@ -35,9 +35,25 @@ The active change is a repository metadata pointer that decides where new worksp
 - Public materialization is reconstructed by replaying public-visible accepted/published semantic deltas. It must not read current private virtual-tree content for paths whose latest content, deletion, rename, or classification came from an unpublished/private change.
 - The MVP private virtual tree is a cache/source for private materialization; it is not by itself a valid public projection snapshot once mutable file lifecycle operations exist.
 
+
+## Rust MVP module map
+
+The Rust MVP is split by responsibility rather than by storage shape:
+
+- `main` is the binary entrypoint: it parses CLI syntax and delegates command execution.
+- `cli` owns Clap command syntax only.
+- `model` owns serializable MVP domain types and small lifecycle predicates; command modules still enforce workflow transitions.
+- `storage` owns the `LocalStore` JSON persistence boundary, repository discovery, storage format checks, and `.canopy/` file access.
+- `paths` owns virtual path normalization and validation.
+- `projection` owns public/private projection computation, including public semantic-delta replay and private virtual-tree replay that excludes abandoned effects.
+- `materialize` owns filesystem materialization safety and writes already-computed entries; it does not decide visibility.
+- `commands` owns command orchestration, split into focused change, file, history, status, and doctor command modules.
+
+This split is behavior-preserving. It does not change the MVP JSON schema, command surface, projection rules, or materialization safety model.
+
 ## Known MVP compromises
 
-- JSON state and a single binary file keep the implementation simple for the slice.
+- JSON state keeps the implementation simple for the slice.
 - There are no merges, remotes, identities, capabilities, or encryption.
 - Cross-file persistence is not transactional.
-- The current binary centralizes storage, path validation, projection, and materialization helper boundaries; a full file-level module split remains available as the MVP grows.
+- The current binary is split into file-level modules, but it remains a single local-only CLI crate rather than the target Canopy engine architecture.
