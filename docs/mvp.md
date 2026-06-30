@@ -56,6 +56,22 @@ Cryptographic enforcement, encryption domains, signatures, capabilities, key rot
 
 The MVP stores readable JSON under `.canopy/` so the model can be inspected and changed quickly. JSON storage is temporary and may be replaced by SQLite, content-addressed storage, or another persistence layer later. The CLI rejects unsupported repository format values and reports missing or corrupt JSON state with the affected state file path. Cross-file updates are still not transactional.
 
+The Rust implementation keeps JSON access behind `LocalStore` in `src/storage.rs`. Other modules should use that boundary rather than reaching into `.canopy/` directly. This is a refactor seam only; it does not introduce a durable migration framework or change the JSON schema.
+
+## Implementation boundaries
+
+The local MVP is organized as a single CLI crate with file-level modules:
+
+- `cli` defines command-line syntax.
+- `model` defines persisted MVP data types.
+- `storage` owns `LocalStore` and `.canopy/` JSON persistence.
+- `paths` validates virtual paths.
+- `projection` computes public/private visibility and replay results.
+- `materialize` writes already-computed projection entries into marker-protected directories.
+- `commands` orchestrates user workflows and prints command output.
+
+These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; they are not the final Canopy engine architecture.
+
 ## Diagnostics
 
 `cnp doctor` checks local state for the MVP storage format, active-change references, workspace operation references, virtual path validity, virtual tree readability, and basic change readability. It reports errors and warnings and exits non-zero when errors are found. It does not automatically repair repositories.

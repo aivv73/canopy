@@ -47,6 +47,8 @@ CI jobs and agents are treated as compromised scoped actors by default. They rec
 
 The first Rust implementation is tested through high-level CLI integration tests in `tests/mvp.rs`. Tests intentionally exercise the public command seam rather than private helper functions so the MVP can be refactored without changing user-facing behavior.
 
+The current Rust MVP is a single local-only CLI crate split into responsibility modules. `cli` owns Clap syntax, `model` owns persisted MVP data shapes, `storage::LocalStore` owns `.canopy/` JSON persistence, `paths` owns virtual path validation, `projection` owns public/private replay and visibility computation, `materialize` owns marker-protected filesystem writes, and `commands` owns workflow orchestration and user-facing output. The split is an implementation boundary for the MVP, not the final engine boundary for replicated workspaces, capabilities, remotes, cryptographic storage, or policy enforcement.
+
 Current coverage focuses on:
 
 - initializing a local repository;

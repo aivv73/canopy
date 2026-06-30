@@ -51,6 +51,54 @@ The Rust MVP is split by responsibility rather than by storage shape:
 
 This split is behavior-preserving. It does not change the MVP JSON schema, command surface, projection rules, or materialization safety model.
 
+### Responsibility boundaries
+
+The module boundaries are intentionally narrow so later persistence and engine work can replace pieces without changing the public command seam:
+
+- CLI syntax belongs in `cli`; command modules should not define new Clap shapes inline.
+- User-facing workflow decisions belong in `commands`; `storage` should not print command output or decide lifecycle transitions.
+- Persisted data shapes belong in `model`; schema changes should be reviewed as storage-format changes even when JSON remains the backing store.
+- `.canopy/` file layout and JSON read/write behavior belong behind `LocalStore`; other modules should not construct repository state paths directly.
+- Virtual path acceptance rules belong in `paths`; filesystem materialization must only consume already-normalized virtual paths.
+- Projection visibility belongs in `projection`; `materialize` must not infer whether a file is public, private, secret, accepted, published, or abandoned.
+- `doctor` should call shared helpers for replay and validation instead of owning independent projection or lifecycle rules.
+
+### Current code layout
+
+```text
+src/
+  main.rs                 # thin binary entrypoint
+  cli.rs                  # Clap syntax
+  model.rs                # persisted MVP data types
+  storage.rs              # LocalStore JSON persistence boundary
+  paths.rs                # virtual path normalization and validation
+  projection.rs           # projection replay and materialization-entry computation
+  materialize.rs          # marker-protected filesystem writes
+  commands/
+    mod.rs                # command dispatcher
+    change.rs             # change lifecycle and promotion commands
+    file.rs               # explicit file lifecycle operation commands
+    history.rs            # projection history rendering
+    status.rs             # lightweight repository status
+    doctor.rs             # local consistency diagnostics
+```
+
+### Command flow
+
+Most commands follow this direction of dependency:
+
+```text
+main -> cli -> commands -> storage/model/paths/projection/materialize
+```
+
+Projection materialization has a stricter flow:
+
+```text
+commands -> projection -> materialize
+```
+
+`projection` computes audience-visible entries. `materialize` only writes those entries into a marker-protected directory. This preserves the MVP rule that public materialization is derived from public-visible accepted/published semantic deltas, not from current private virtual-tree contents.
+
 ## Known MVP compromises
 
 - JSON state keeps the implementation simple for the slice.
