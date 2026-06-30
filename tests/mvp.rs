@@ -365,3 +365,143 @@ fn public_materialization_does_not_read_unpublished_private_tree_state() {
         "draft secret\n"
     );
 }
+
+#[test]
+fn finish_clears_active_change_without_changing_history_or_materialization() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+
+    run(&repo, &["change", "start", "Finish me"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["change", "propose", "Finish me"]);
+    run(&repo, &["change", "accept", "Finish me"]);
+    run(&repo, &["change", "publish", "Finish me", "--to", "public"]);
+    run(&repo, &["change", "finish", "Finish me"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active change: none"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Finish me"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Change: Finish me"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "public"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("add README.md"));
+
+    let public = temp.path().join("finished-public");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "public",
+            public.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(public.join("README.md")).unwrap(),
+        "hello\n"
+    );
+}
+
+#[test]
+fn no_active_change_errors_are_clear_after_finish() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    run(&repo, &["change", "start", "Done"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["change", "finish", "Done"]);
+
+    for args in [
+        vec!["file", "add", "README.md"],
+        vec!["file", "update", "README.md"],
+        vec!["file", "remove", "README.md"],
+        vec!["file", "rename", "README.md", "README2.md"],
+    ] {
+        Command::new(env!("CARGO_BIN_EXE_cnp"))
+            .current_dir(&repo)
+            .args(args)
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("no active change"))
+            .stderr(predicate::str::contains("cnp change start"));
+    }
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "current"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no active change"));
+}
+
+#[test]
+fn finish_refuses_non_active_change_and_second_change_gets_ops() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("a.txt"), "a\n").unwrap();
+    fs::write(repo.join("b.txt"), "b\n").unwrap();
+
+    run(&repo, &["change", "start", "First"]);
+    run(&repo, &["file", "add", "a.txt"]);
+    run(&repo, &["change", "finish", "First"]);
+    run(&repo, &["change", "start", "Second"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "finish", "First"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("change/second is active"));
+    run(&repo, &["file", "add", "b.txt"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active change: change/second"))
+        .stdout(predicate::str::contains("Workspace operations: 1"));
+}
+
+#[test]
+fn doctor_reports_active_change_lifecycle_problems() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    run(&repo, &["change", "start", "Accepted active"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(&repo, &["change", "propose", "Accepted active"]);
+    run(&repo, &["change", "accept", "Accepted active"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("accepted change is still active"));
+
+    fs::write(
+        repo.join(".canopy/repo.json"),
+        "{\"name\":\"demo\",\"format\":\"canopy-mvp-1\",\"active_change\":\"missing\"}\n",
+    )
+    .unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("active change does not exist"));
+}

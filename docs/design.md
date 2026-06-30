@@ -52,6 +52,7 @@ Current coverage focuses on:
 - initializing a local repository;
 - starting, proposing, accepting, publishing, listing, and inspecting changes;
 - inspecting repository status and promotion proposals;
+- finishing active changes and verifying no-active-change command behavior;
 - recording explicit `file add`, `file update`, `file remove`, and `file rename` operations with public/config-template/secret classes;
 - running lightweight `doctor` diagnostics for healthy state and representative storage-format errors;
 - omitting secret paths from public history and public materialization;

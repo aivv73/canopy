@@ -18,6 +18,7 @@ local virtual tree
 - `cnp status` shows repository status, storage format, the active change, and captured workspace operation count.
 - `cnp doctor` validates local JSON state and reports errors/warnings without repairing it.
 - `cnp change start <name>` creates an active change.
+- `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
 - `cnp change list|show|current|proposal` inspect changes and promotion proposals by named references.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
 - `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
@@ -29,6 +30,12 @@ local virtual tree
 - `cnp change disclose <change> --to public` exists as the MVP shape for future disclosure semantics.
 - `cnp history --projection public|private` shows semantic projection history.
 - `cnp projection materialize public|private <out-dir>` writes a filesystem view explicitly.
+
+## Active change lifecycle
+
+File lifecycle commands require an active change because workspace operations must belong to a change. `cnp change finish <change>` returns the repository to `Active change: none`; after that, file operations fail until another `cnp change start <name>` is run. Finishing a change is not promotion acceptance, publication, disclosure, deletion, or retention compaction. It only clears the local active-change pointer. Acceptance, publication, and disclosure do not automatically finish a change in the MVP; run `cnp change finish` explicitly when editing for that change is complete.
+
+`cnp doctor` reports missing active-change references as errors and warns when an accepted or published/disclosed change remains active.
 
 ## Security warning
 

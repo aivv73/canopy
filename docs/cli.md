@@ -60,9 +60,10 @@ cnp workspace status
 ```bash
 cnp change propose "OAuth cleanup"
 cnp change accept "OAuth cleanup"
+cnp change finish "OAuth cleanup"
 ```
 
-Promotion creates clean semantic deltas from workspace history. Acceptance is policy-governed.
+Promotion creates clean semantic deltas from workspace history. Acceptance is policy-governed. Finishing a change clears the active editing association used by file lifecycle commands; it does not accept, publish, disclose, delete, or compact the change.
 
 ## Visibility lifecycle
 

@@ -6,11 +6,15 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 ## Command surface
 
 - `cnp init [path]` creates `.canopy/` JSON state.
-- `cnp change start|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
+- `cnp change start|finish|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
 - `cnp file add|update|remove|rename ...` explicitly records file lifecycle operations against the active change.
 - `cnp status` and `cnp doctor` inspect repository state and validate local JSON consistency.
 - `cnp history --projection public|private` renders accepted history through projection rules.
 - `cnp projection materialize public|private <out-dir>` writes a filtered tree to disk.
+
+## Active change lifecycle
+
+The active change is a repository metadata pointer that decides where new workspace operations are recorded. `cnp change finish <change>` clears that pointer when the named change is currently active. Finishing does not change the change status, proposal data, accepted semantic deltas, publication/disclosure metadata, public/private history, or materialization semantics.
 
 ## Storage files
 

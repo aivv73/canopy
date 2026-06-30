@@ -22,3 +22,7 @@ Use the `dpc-rust-general-multipart-review` skill after major Rust changes.
 
 Read root `SECURITY.md` before changing filesystem mutation, persistence,
 authorization, or other trust-boundary behavior.
+
+## Architecture context
+
+Read root `ARCHITECTURE.md` before changing Rust CLI architecture, persistence shape, projection behavior, or command boundaries.

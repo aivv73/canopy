@@ -68,6 +68,9 @@ enum ChangeCommand {
     Proposal {
         change: String,
     },
+    Finish {
+        change: String,
+    },
     Propose {
         change: String,
     },
@@ -293,6 +296,7 @@ fn main() -> Result<()> {
             ChangeCommand::Show { change } => change_show(&change),
             ChangeCommand::Current => change_current(),
             ChangeCommand::Proposal { change } => proposal_show(&change),
+            ChangeCommand::Finish { change } => change_finish(&change),
             ChangeCommand::Propose { change } => change_propose(&change),
             ChangeCommand::Accept { change } => change_accept(&change),
             ChangeCommand::Publish { change, to } => {
@@ -467,6 +471,29 @@ fn proposal_show(change_ref: &str) -> Result<()> {
     for delta in proposal.semantic_deltas {
         println!("  - {}", delta.name);
     }
+    Ok(())
+}
+
+fn change_finish(change_ref: &str) -> Result<()> {
+    let root = repo_root()?;
+    let handle = resolve_change_handle(change_ref);
+    let mut meta = read_repo_meta(&root)?;
+    let Some(active) = &meta.active_change else {
+        bail!("no active change; run `cnp change start <name>` first");
+    };
+    if active != &handle {
+        bail!(
+            "cannot finish change/{} because change/{} is active",
+            handle,
+            active
+        );
+    }
+    let change: Change = read_json(&change_path(&root, &handle))?;
+    meta.active_change = None;
+    write_json(&root.join("repo.json"), &meta)?;
+    println!("Finished active change: {}", change.name);
+    println!("Handle: change/{}", change.handle);
+    println!("Active change: none");
     Ok(())
 }
 
@@ -898,9 +925,11 @@ fn doctor() -> Result<()> {
             .to_string(),
     ];
 
+    let mut active_handle = None;
     match read_repo_meta(&root) {
         Ok(meta) => {
             if let Some(active) = &meta.active_change {
+                active_handle = Some(active.clone());
                 if !change_path(&root, active).exists() {
                     errors.push(format!("active change does not exist: change/{}", active));
                 }
@@ -917,6 +946,22 @@ fn doctor() -> Result<()> {
         }
     };
     let change_handles: Vec<_> = changes.iter().map(|c| c.handle.clone()).collect();
+    if let Some(active) = active_handle {
+        if let Some(change) = changes.iter().find(|c| c.handle == active) {
+            if change.status == ChangeStatus::Accepted {
+                warnings.push(format!(
+                    "accepted change is still active; run `cnp change finish change/{}` when editing is complete",
+                    active
+                ));
+            }
+            if change.published_at.is_some() || change.disclosed_at.is_some() {
+                warnings.push(format!(
+                    "published/disclosed change is still active; run `cnp change finish change/{}` when editing is complete",
+                    active
+                ));
+            }
+        }
+    }
 
     match read_json::<WorkspaceOps>(&root.join("workspace-ops.json")) {
         Ok(ops) => {

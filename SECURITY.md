@@ -19,6 +19,9 @@ Canopy is currently an MVP/prototype. The implemented `cnp` command is local-onl
 
 ## Persistence limits
 
+Finishing a change clears only the local active-change metadata pointer. It does not delete stored workspace operations, semantic deltas, virtual-tree content, or plaintext secret data.
+
+
 - JSON state writes use write-then-rename for individual state files.
 - Cross-file updates are not transactional in this MVP.
 - There is no schema migration, corruption recovery, or authenticated storage yet. The diagnostic command reports local consistency problems but does not repair them.
