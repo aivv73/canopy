@@ -64,9 +64,12 @@ cnp change propose "OAuth cleanup"
 cnp change accept "OAuth cleanup"
 cnp change finish "OAuth cleanup"
 cnp change abandon "Legacy refactor"      # stop an unaccepted intent
+cnp change correct "Legacy config" --kind reversal --name "Reverse legacy config"
 ```
 
 Promotion creates clean semantic deltas from workspace history. Acceptance is policy-governed. Finishing a change clears the active editing association used by file lifecycle commands; it does not accept, publish, disclose, delete, or compact the change.
+
+Accepted changes are corrected by new semantic changes, not abandonment or history rewrite. `cnp change correct` creates a new active corrective change with metadata pointing at an accepted target change. Reversal counteracts a prior accepted effect; supersession replaces the prior intent with a newer accepted intent. The command does not auto-generate file operations in the MVP.
 
 ## Visibility lifecycle
 

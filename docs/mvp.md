@@ -18,6 +18,7 @@ local virtual tree
 - `cnp status` shows repository status, storage format, the active change, and captured workspace operation count.
 - `cnp doctor` validates local JSON state and reports grouped errors, warnings, and selected next-action hints without repairing it.
 - `cnp change start <name>` creates an active change.
+- `cnp change correct <target-change> --kind reversal|supersession --name <name>` creates an active corrective change targeting an accepted change without auto-generating file operations.
 - `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
 - `cnp change abandon <change>` marks an unaccepted change as abandoned intent history, hides it from default change lists, and removes its effects from current private materialization.
 - `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `--all` includes abandoned changes. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections.
@@ -36,7 +37,9 @@ local virtual tree
 
 `cnp change abandon <change>` stops an unaccepted change intent. Abandonment is not deletion: the change record, workspace operations, and any retained promotion proposal remain available for provenance. Default `cnp change list` hides abandoned changes; `cnp change list --all` shows them as `abandoned`, and `cnp change show <change>` can inspect them.
 
-Only `active` and `proposed` changes can be abandoned in the MVP. Accepted, published, and disclosed changes cannot be abandoned; they need future revert or supersede workflows. Abandoned changes do not appear in public/private history because history remains accepted semantic history. Private materialization replays non-abandoned workspace operations so abandoned add/update/remove/rename effects disappear from the current private tree. Abandonment reasons such as superseded, cancelled, merged elsewhere, or obsolete are future work.
+Only `active` and `proposed` changes can be abandoned in the MVP. Accepted, published, and disclosed changes cannot be abandoned; they need corrective changes. Abandoned changes do not appear in public/private history because history remains accepted semantic history. Private materialization replays non-abandoned workspace operations so abandoned add/update/remove/rename effects disappear from the current private tree. Abandonment reasons such as superseded, cancelled, merged elsewhere, or obsolete are future work.
+
+A corrective change is new semantic work that targets an earlier accepted change and then follows the normal proposal, acceptance, and visibility lifecycle. Reversal counteracts an earlier accepted effect; supersession replaces an earlier accepted intent with a newer one. Public history shows correction links only when the target change is visible in the same projection. Correction metadata explains intent; materialization is still determined only by accepted semantic deltas visible in the requested projection.
 
 ## Active change lifecycle
 
@@ -57,6 +60,10 @@ Cryptographic enforcement, encryption domains, signatures, capabilities, key rot
 The MVP stores readable JSON under `.canopy/` so the model can be inspected and changed quickly. JSON storage is temporary and may be replaced by SQLite, content-addressed storage, or another persistence layer later. The CLI rejects unsupported repository format values and reports missing or corrupt JSON state with the affected state file path. Cross-file updates are still not transactional.
 
 The Rust implementation keeps JSON access behind `LocalStore` in `src/storage.rs`. Other modules should use that boundary rather than reaching into `.canopy/` directly. This is a refactor seam only; it does not introduce a durable migration framework or change the JSON schema.
+
+Corrective-change metadata is an additive optional field in change records. Existing MVP JSON change records without correction metadata still load as non-corrective changes.
+
+Future storage work should define repository-store and replay boundaries before choosing SQLite, `redb`, compact binary encodings, or other persistence technology. Inspectability, migration, and forward compatibility matter more than early encoding density in the MVP.
 
 ## Implementation boundaries
 

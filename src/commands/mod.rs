@@ -22,6 +22,11 @@ pub fn run(command: Command) -> Result<()> {
         }
         Command::Change { command } => match command {
             ChangeCommand::Start { name } => change::start(&name),
+            ChangeCommand::Correct {
+                target_change,
+                kind,
+                name,
+            } => change::correct(&target_change, kind, &name),
             ChangeCommand::List { all } => change::list(all),
             ChangeCommand::Show { change: change_ref } => change::show(&change_ref),
             ChangeCommand::Current => change::current(),

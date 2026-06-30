@@ -6,7 +6,7 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 ## Command surface
 
 - `cnp init [path]` creates `.canopy/` JSON state.
-- `cnp change start|finish|abandon|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
+- `cnp change start|correct|finish|abandon|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
 - `cnp file add|update|remove|rename ...` explicitly records file lifecycle operations against the active change.
 - `cnp status` and `cnp doctor` inspect repository state and validate local JSON consistency.
 - `cnp history --projection public|private` renders accepted history through projection rules.
@@ -15,6 +15,12 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 ## Change abandonment
 
 Abandoned changes are retained intent history for unaccepted work, not physical deletion. The MVP keeps `active` as the draft-like status name and adds `abandoned` as a terminal state for active/proposed changes. Default change lists hide abandoned changes, `--all` exposes them, proposals are retained for explanation, and private virtual tree replay excludes abandoned workspace effects. Accepted, published, and disclosed changes cannot be abandoned.
+
+## Corrective changes
+
+Accepted changes are corrected by new semantic changes rather than abandonment, deletion, or history rewrite. `cnp change correct <target-change> --kind reversal|supersession --name <name>` creates a new active change with optional correction metadata targeting an accepted change. Reversal counteracts an earlier accepted effect; supersession replaces an earlier accepted intent with a newer one.
+
+Correction metadata explains semantic intent only. Materialization remains driven by accepted semantic deltas through projection visibility rules. Public history shows correction links only when both the corrective change and the corrected target appear in the same public projection history view.
 
 ## Inspection views
 
@@ -31,7 +37,7 @@ The active change is a repository metadata pointer that decides where new worksp
 - `.canopy/repo.json`: repository metadata and active change handle.
 - `.canopy/virtual-tree.json`: private full-tree cache for materialization.
 - `.canopy/workspace-ops.json`: durable operation log captured by `cnp file add`.
-- `.canopy/changes/*.json`: change records, promotion proposals, acceptance/publication timestamps.
+- `.canopy/changes/*.json`: change records, optional correction metadata, promotion proposals, acceptance/publication timestamps.
 
 ## Projection model
 
@@ -111,3 +117,7 @@ commands -> projection -> materialize
 - There are no merges, remotes, identities, capabilities, or encryption.
 - Cross-file persistence is not transactional.
 - The current binary is split into file-level modules, but it remains a single local-only CLI crate rather than the target Canopy engine architecture.
+
+## Technology timing
+
+Canopy chooses infrastructure libraries only after the domain boundary they support is explicit enough to evaluate. Near-term work should prioritize store, replay, projection, materialization, and inspection correctness over premature choices for binary formats, network protocols, CRDTs, or capability DSLs. See [`docs/adr/0018-defer-infrastructure-choices-until-domain-boundaries-are-stable.md`](./docs/adr/0018-defer-infrastructure-choices-until-domain-boundaries-are-stable.md).

@@ -1,5 +1,5 @@
 use crate::{
-    model::{ChangeStatus, WorkspaceOps},
+    model::{Change, ChangeStatus, WorkspaceOps},
     paths::validate_virtual_path,
     projection::private_tree_from_workspace,
     storage::LocalStore,
@@ -73,6 +73,7 @@ pub fn run() -> Result<()> {
             ));
         }
     }
+    validate_corrections(&changes, &mut errors, &mut hints);
     match store.read_workspace_ops() {
         Ok(ops) => validate_ops(&ops, &change_handles, &mut errors),
         Err(e) => errors.push(format!("cannot read workspace operations: {e}")),
@@ -122,6 +123,38 @@ pub fn run() -> Result<()> {
         Ok(())
     } else {
         bail!("doctor found {} error(s)", errors.len())
+    }
+}
+
+fn validate_corrections(changes: &[Change], errors: &mut Vec<String>, hints: &mut Vec<String>) {
+    for change in changes {
+        let Some(correction) = &change.correction else {
+            continue;
+        };
+        let Some(target) = changes
+            .iter()
+            .find(|candidate| candidate.handle == correction.target_change)
+        else {
+            errors.push(format!(
+                "corrective change targets missing change: change/{} corrects change/{}",
+                change.handle, correction.target_change
+            ));
+            hints.push(format!(
+                "repair correction metadata on change/{} or restore change/{} before relying on correction history",
+                change.handle, correction.target_change
+            ));
+            continue;
+        };
+        if target.status != ChangeStatus::Accepted {
+            errors.push(format!(
+                "corrective change targets non-accepted change: change/{} corrects change/{}",
+                change.handle, correction.target_change
+            ));
+            hints.push(format!(
+                "accept the target change or remove correction metadata from change/{}",
+                change.handle
+            ));
+        }
     }
 }
 

@@ -23,6 +23,10 @@ pub fn run(projection: Projection) -> Result<()> {
         if let Some(t) = change.visible_at {
             println!("Visible at: {}", t.to_rfc3339());
         }
+        if let Some(correction) = change.correction {
+            println!("Correction kind: {}", correction.kind);
+            println!("Corrects: change/{}", correction.target_change);
+        }
         println!("Deltas:");
         for d in change.deltas {
             println!("  - {}", d.name);

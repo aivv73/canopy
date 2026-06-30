@@ -122,6 +122,8 @@ pub struct Change {
     pub accepted_at: Option<DateTime<Utc>>,
     pub published_at: Option<DateTime<Utc>>,
     pub disclosed_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correction: Option<Correction>,
 }
 
 impl Change {
@@ -132,6 +134,36 @@ impl Change {
     pub fn can_be_abandoned(&self) -> bool {
         matches!(self.status, ChangeStatus::Active | ChangeStatus::Proposed)
             && !self.has_accepted_or_visible_metadata()
+    }
+}
+
+/// Optional persisted metadata marking a change as a correction of an accepted change.
+///
+/// `target_change` stores a shell-friendly change handle, not a raw storage ID.
+/// Correction metadata explains intent/provenance only; materialization remains
+/// driven by semantic deltas visible in the requested projection.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Correction {
+    pub target_change: String,
+    pub kind: CorrectionKind,
+}
+
+/// The semantic shape of a corrective change.
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum CorrectionKind {
+    /// Counteracts the accepted effect of an earlier change.
+    Reversal,
+    /// Replaces an earlier accepted intent with a newer accepted intent.
+    Supersession,
+}
+
+impl std::fmt::Display for CorrectionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Reversal => "reversal",
+            Self::Supersession => "supersession",
+        })
     }
 }
 

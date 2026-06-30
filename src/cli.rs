@@ -1,4 +1,4 @@
-use crate::model::{FileClass, Projection};
+use crate::model::{CorrectionKind, FileClass, Projection};
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -37,6 +37,13 @@ pub enum Command {
 #[derive(Subcommand)]
 pub enum ChangeCommand {
     Start {
+        name: String,
+    },
+    Correct {
+        target_change: String,
+        #[arg(long, value_enum)]
+        kind: CorrectionKind,
+        #[arg(long)]
         name: String,
     },
     List {

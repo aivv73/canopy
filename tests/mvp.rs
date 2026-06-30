@@ -294,6 +294,260 @@ fn richer_inspection_outputs_explain_change_history_and_doctor_state() {
 }
 
 #[test]
+fn corrective_change_reversal_flows_through_history_and_materialization() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("legacy.conf"), "legacy\n").unwrap();
+
+    run(&repo, &["change", "start", "Add legacy config"]);
+    run(&repo, &["file", "add", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Add legacy config"]);
+    run(&repo, &["change", "accept", "Add legacy config"]);
+    run(
+        &repo,
+        &["change", "publish", "Add legacy config", "--to", "public"],
+    );
+    run(&repo, &["change", "finish", "Add legacy config"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args([
+            "change",
+            "correct",
+            "Add legacy config",
+            "--kind",
+            "reversal",
+            "--name",
+            "Reverse legacy config",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Started corrective change"))
+        .stdout(predicate::str::contains("Correction kind: reversal"))
+        .stdout(predicate::str::contains(
+            "Corrects: change/add-legacy-config",
+        ))
+        .stdout(predicate::str::contains(
+            "no file operations were generated",
+        ));
+    run(&repo, &["file", "remove", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Reverse legacy config"]);
+    run(&repo, &["change", "accept", "Reverse legacy config"]);
+    run(
+        &repo,
+        &[
+            "change",
+            "publish",
+            "Reverse legacy config",
+            "--to",
+            "public",
+        ],
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Reverse legacy config"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Correction kind: reversal"))
+        .stdout(predicate::str::contains(
+            "Corrects: change/add-legacy-config",
+        ));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "public"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Change: Reverse legacy config"))
+        .stdout(predicate::str::contains("Correction kind: reversal"))
+        .stdout(predicate::str::contains(
+            "Corrects: change/add-legacy-config",
+        ));
+
+    let public = temp.path().join("corrected-public");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "public",
+            public.to_str().unwrap(),
+        ],
+    );
+    assert!(!public.join("legacy.conf").exists());
+}
+
+#[test]
+fn corrective_change_supersession_and_public_target_visibility_are_projection_safe() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("private.txt"), "private\n").unwrap();
+    fs::write(repo.join("public.txt"), "public\n").unwrap();
+
+    run(&repo, &["change", "start", "Private target"]);
+    run(&repo, &["file", "add", "private.txt"]);
+    run(&repo, &["change", "propose", "Private target"]);
+    run(&repo, &["change", "accept", "Private target"]);
+    run(&repo, &["change", "finish", "Private target"]);
+
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Private target",
+            "--kind",
+            "supersession",
+            "--name",
+            "Public supersession",
+        ],
+    );
+    run(&repo, &["file", "add", "public.txt"]);
+    run(&repo, &["change", "propose", "Public supersession"]);
+    run(&repo, &["change", "accept", "Public supersession"]);
+    run(
+        &repo,
+        &["change", "publish", "Public supersession", "--to", "public"],
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "private"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Correction kind: supersession"))
+        .stdout(predicate::str::contains("Corrects: change/private-target"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "public"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Change: Public supersession"))
+        .stdout(predicate::str::contains("Corrects: change/private-target").not());
+}
+
+#[test]
+fn public_correction_links_require_target_to_appear_in_same_history_view() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("secret.txt"), "SECRET\n").unwrap();
+    fs::write(repo.join("safe.txt"), "safe\n").unwrap();
+
+    run(&repo, &["change", "start", "Secret-only target"]);
+    run(&repo, &["file", "add", "secret.txt", "--class", "secret"]);
+    run(&repo, &["change", "propose", "Secret-only target"]);
+    run(&repo, &["change", "accept", "Secret-only target"]);
+    run(
+        &repo,
+        &["change", "publish", "Secret-only target", "--to", "public"],
+    );
+    run(&repo, &["change", "finish", "Secret-only target"]);
+
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Secret-only target",
+            "--kind",
+            "supersession",
+            "--name",
+            "Safe public correction",
+        ],
+    );
+    run(&repo, &["file", "add", "safe.txt"]);
+    run(&repo, &["change", "propose", "Safe public correction"]);
+    run(&repo, &["change", "accept", "Safe public correction"]);
+    run(
+        &repo,
+        &[
+            "change",
+            "publish",
+            "Safe public correction",
+            "--to",
+            "public",
+        ],
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "public"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Change: Safe public correction"))
+        .stdout(predicate::str::contains("Secret-only target").not())
+        .stdout(predicate::str::contains("Corrects: change/secret-only-target").not());
+}
+
+#[test]
+fn corrective_change_validates_target_and_doctor_reports_bad_metadata() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("draft.txt"), "draft\n").unwrap();
+    run(&repo, &["change", "start", "Draft target"]);
+    run(&repo, &["file", "add", "draft.txt"]);
+    run(&repo, &["change", "finish", "Draft target"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args([
+            "change",
+            "correct",
+            "Draft target",
+            "--kind",
+            "reversal",
+            "--name",
+            "Invalid correction",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must be accepted"));
+
+    let change_path = repo.join(".canopy/changes/draft-target.json");
+    let legacy_without_correction = fs::read_to_string(&change_path).unwrap();
+    assert!(!legacy_without_correction.contains("correction"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Draft target"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Correction: none"));
+
+    let non_accepted_target = legacy_without_correction.replace(
+        "\n}",
+        ",\n  \"correction\": { \"target_change\": \"draft-target\", \"kind\": \"reversal\" }\n}",
+    );
+    fs::write(&change_path, non_accepted_target).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "corrective change targets non-accepted change",
+        ));
+
+    let bad = fs::read_to_string(&change_path).unwrap().replace(
+        "\"target_change\": \"draft-target\"",
+        "\"target_change\": \"missing\"",
+    );
+    fs::write(&change_path, bad).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "corrective change targets missing change",
+        ))
+        .stdout(predicate::str::contains("Hint:"));
+}
+
+#[test]
 fn update_remove_and_rename_flow_through_projections() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

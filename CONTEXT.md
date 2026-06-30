@@ -148,6 +148,18 @@ _Avoid_: Multiple owning changes, ownerless delta
 A terminal lifecycle event for an unaccepted change whose intent is consciously stopped. Abandonment preserves the fact that the intent existed while preventing the change from entering projection history.
 _Avoid_: Delete change, erase draft, drop commit
 
+**Corrective change**:
+A change whose accepted semantic purpose is to correct an earlier accepted change without deleting, abandoning, or rewriting that earlier history. Corrective changes enter history through the normal proposal, acceptance, and visibility lifecycle.
+_Avoid_: Revert commit, history rewrite, delete accepted change
+
+**Reversal**:
+A corrective change kind that counteracts the accepted effect of an earlier change while leaving the earlier change in history according to its visibility.
+_Avoid_: Undo commit, erase change
+
+**Supersession**:
+A corrective change kind that replaces the intent or effect of an earlier accepted change with a newer accepted intent while preserving both changes as semantic history according to projection visibility.
+_Avoid_: Force-push replacement, pretend the old change never happened
+
 **Abandonment reason**:
 A later explanatory classification for why a change was abandoned, such as superseded, cancelled, merged elsewhere, or obsolete. The reason explains the stopped intent; it is not the abandonment event itself.
 _Avoid_: Status subtype, deletion cause, failure code

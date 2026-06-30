@@ -7,19 +7,21 @@
 
 use crate::{
     model::{
-        ChangeStatus, FileEntry, OpKind, Projection, SemanticDelta, VirtualTree, WorkspaceOps,
+        Change, ChangeStatus, Correction, FileEntry, OpKind, Projection, SemanticDelta,
+        VirtualTree, WorkspaceOps,
     },
     storage::LocalStore,
 };
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct ProjectedHistoryChange {
     pub name: String,
     pub handle: String,
     pub status: ChangeStatus,
     pub visible_at: Option<DateTime<Utc>>,
+    pub correction: Option<Correction>,
     pub deltas: Vec<SemanticDelta>,
 }
 
@@ -90,13 +92,7 @@ pub fn projected_history(
     changes.sort_by_key(|c| c.created_at);
     let mut projected = Vec::new();
     for change in changes {
-        if change.status != ChangeStatus::Accepted {
-            continue;
-        }
-        if projection == Projection::Public
-            && change.published_at.is_none()
-            && change.disclosed_at.is_none()
-        {
+        if !history_change_visible(&change, projection) {
             continue;
         }
         let Some(proposal) = &change.proposal else {
@@ -123,10 +119,31 @@ pub fn projected_history(
             handle: change.handle,
             status: change.status,
             visible_at,
+            correction: change.correction,
             deltas,
         });
     }
+    let visible_handles: BTreeSet<_> = projected
+        .iter()
+        .map(|change| change.handle.clone())
+        .collect();
+    if projection == Projection::Public {
+        for change in &mut projected {
+            if let Some(correction) = &change.correction {
+                if !visible_handles.contains(&correction.target_change) {
+                    change.correction = None;
+                }
+            }
+        }
+    }
     Ok(projected)
+}
+
+fn history_change_visible(change: &Change, projection: Projection) -> bool {
+    change.status == ChangeStatus::Accepted
+        && (projection == Projection::Private
+            || change.published_at.is_some()
+            || change.disclosed_at.is_some())
 }
 
 /// Computes already-filtered materialization entries for a projection.

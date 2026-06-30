@@ -10,6 +10,7 @@ Canopy is currently an MVP/prototype. The implemented `cnp` command is local-onl
 - `cnp projection materialize public ...` omits secret paths and unpublished changes from the materialized public tree and public history, but does not erase the private source data.
 - Public materialization is reconstructed only from accepted and published/disclosed proposal data, never from unpublished private virtual-tree content.
 - Inspection commands such as `cnp change show`, `cnp change current`, `cnp history --projection private`, and `cnp doctor` are local diagnostic views, not public-safe artifacts. They may reveal private metadata such as change names, lifecycle timestamps, proposal delta names, active editing state, and secret-class operation counts. Public-safe output must continue to use public projection rules.
+- Correction metadata is local diagnostic/provenance metadata and may reveal private relationships in `change show`, private `history`, and `doctor`. Public history may show correction links only when both the corrective change and the corrected target are visible in the public projection history view.
 
 ## Filesystem mutation rules
 

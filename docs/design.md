@@ -26,6 +26,8 @@ Workspaces are live replicated editing surfaces over repository views. Workspace
 
 Promotion turns selected workspace work into semantic deltas through a promotion proposal. Promotion acceptance is policy-governed and may require review, checks, or governance approval.
 
+Accepted changes are corrected by later semantic changes rather than abandonment, deletion, or history rewrite. A corrective change may reverse an earlier accepted effect or supersede it with a newer accepted intent, and it follows the normal proposal, acceptance, publication, and disclosure lifecycle.
+
 ## Policy and governance
 
 The policy stack defines intended visibility and workflow behavior. Capability sets enforce access with cryptographic material plus claims such as audience, projection, workspace, purpose, and expiry.
@@ -37,6 +39,8 @@ Sensitive policy or disclosure changes are governance events. Governance events 
 Canopy uses layered encryption domains aligned with policy boundaries, hierarchical keying, key wrapping, purpose-scoped derived capabilities, and layered signatures.
 
 Clone bootstraps trust in repository identity, projection signers, policy roots, and optional invitation capabilities. A hosting URL is not the repository identity.
+
+Canopy should not choose crypto, capability-token, storage, network, or live-collaboration libraries before the corresponding domain boundary is stable. The MVP prioritizes store/replay/projection correctness; future slices can evaluate storage backends, cryptographic primitives, capability systems, sync transports, and CRDTs against explicit Canopy invariants. Future sync semantics should be transport-agnostic: WebSocket, HTTP manifest exchange, QUIC, and local test adapters are transport options, not the semantic model.
 
 ## CI and automation
 
@@ -61,6 +65,7 @@ Current coverage focuses on:
 - omitting secret paths from public history and public materialization;
 - including secret paths in private history and private materialization;
 - preventing unpublished public-safe draft files and unpublished private updates to public paths from appearing in public materializations;
+- covering accepted-change correction target validation, projection-safe correction links, and backwards-compatible optional correction metadata;
 - rejecting invalid virtual paths and unsafe materialization targets.
 
 This lightweight diagnostics coverage is not a substitute for later migration, recovery, remote-sync, authorization, authenticated-storage, or cryptographic privacy tests.

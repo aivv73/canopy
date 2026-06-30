@@ -1,6 +1,7 @@
 use crate::{
     model::{
-        Change, ChangeStatus, OpKind, Projection, PromotionProposal, PublicationMode, SemanticDelta,
+        Change, ChangeStatus, Correction, CorrectionKind, OpKind, Projection, PromotionProposal,
+        PublicationMode, SemanticDelta,
     },
     projection::rebuild_private_virtual_tree,
     storage::{resolve_change_handle, slug, LocalStore},
@@ -23,6 +24,7 @@ pub fn start(name: &str) -> Result<()> {
         accepted_at: None,
         published_at: None,
         disclosed_at: None,
+        correction: None,
     };
     store.write_change(&change)?;
     let mut meta = store.read_meta()?;
@@ -30,6 +32,46 @@ pub fn start(name: &str) -> Result<()> {
     store.write_meta(&meta)?;
     println!("Started change: {}", name);
     println!("Handle: change/{}", handle);
+    Ok(())
+}
+
+pub fn correct(target_ref: &str, kind: CorrectionKind, name: &str) -> Result<()> {
+    let store = LocalStore::discover()?;
+    let target_handle = resolve_change_handle(target_ref);
+    let target = store.read_change(&target_handle)?;
+    if target.status != ChangeStatus::Accepted {
+        bail!(
+            "change/{} must be accepted before it can be corrected",
+            target_handle
+        );
+    }
+    let handle = slug(name);
+    if store.change_path(&handle).exists() {
+        bail!("change handle already exists: {}", handle);
+    }
+    let change = Change {
+        name: name.into(),
+        handle: handle.clone(),
+        status: ChangeStatus::Active,
+        created_at: Utc::now(),
+        proposal: None,
+        accepted_at: None,
+        published_at: None,
+        disclosed_at: None,
+        correction: Some(Correction {
+            target_change: target_handle.clone(),
+            kind,
+        }),
+    };
+    store.write_change(&change)?;
+    let mut meta = store.read_meta()?;
+    meta.active_change = Some(handle.clone());
+    store.write_meta(&meta)?;
+    println!("Started corrective change: {}", name);
+    println!("Handle: change/{}", handle);
+    println!("Correction kind: {}", kind);
+    println!("Corrects: change/{}", target_handle);
+    println!("Note: no file operations were generated automatically");
     Ok(())
 }
 
@@ -120,6 +162,14 @@ fn show_by_handle(store: &LocalStore, handle: &str) -> Result<()> {
         }
     );
 
+    println!("Correction");
+    if let Some(correction) = &change.correction {
+        println!("Correction kind: {}", correction.kind);
+        println!("Corrects: change/{}", correction.target_change);
+    } else {
+        println!("Correction: none");
+    }
+
     println!("Promotion proposal");
     if let Some(proposal) = &change.proposal {
         println!(
@@ -184,7 +234,7 @@ pub fn abandon(change_ref: &str) -> Result<()> {
     let handle = resolve_change_handle(change_ref);
     let mut change = store.read_change(&handle)?;
     if !change.can_be_abandoned() && change.status != ChangeStatus::Abandoned {
-        bail!("change/{} is accepted or visible and cannot be abandoned; use a future revert or supersede workflow", handle);
+        bail!("change/{} is accepted or visible and cannot be abandoned; use `cnp change correct` to create a corrective change", handle);
     }
     let was_abandoned = change.status == ChangeStatus::Abandoned;
     if !was_abandoned {
