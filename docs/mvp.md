@@ -19,7 +19,8 @@ local virtual tree
 - `cnp doctor` validates local JSON state and reports errors/warnings without repairing it.
 - `cnp change start <name>` creates an active change.
 - `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
-- `cnp change list|show|current|proposal` inspect changes and promotion proposals by named references.
+- `cnp change abandon <change>` marks an unaccepted change as abandoned intent history, hides it from default change lists, and removes its effects from current private materialization.
+- `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `--all` includes abandoned changes.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
 - `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
 - `cnp file remove <path>` records an explicit removal operation.
@@ -30,6 +31,12 @@ local virtual tree
 - `cnp change disclose <change> --to public` exists as the MVP shape for future disclosure semantics.
 - `cnp history --projection public|private` shows semantic projection history.
 - `cnp projection materialize public|private <out-dir>` writes a filesystem view explicitly.
+
+## Change abandonment
+
+`cnp change abandon <change>` stops an unaccepted change intent. Abandonment is not deletion: the change record, workspace operations, and any retained promotion proposal remain available for provenance. Default `cnp change list` hides abandoned changes; `cnp change list --all` shows them as `abandoned`, and `cnp change show <change>` can inspect them.
+
+Only `active` and `proposed` changes can be abandoned in the MVP. Accepted, published, and disclosed changes cannot be abandoned; they need future revert or supersede workflows. Abandoned changes do not appear in public/private history because history remains accepted semantic history. Private materialization replays non-abandoned workspace operations so abandoned add/update/remove/rename effects disappear from the current private tree. Abandonment reasons such as superseded, cancelled, merged elsewhere, or obsolete are future work.
 
 ## Active change lifecycle
 

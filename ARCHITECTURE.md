@@ -6,11 +6,15 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 ## Command surface
 
 - `cnp init [path]` creates `.canopy/` JSON state.
-- `cnp change start|finish|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
+- `cnp change start|finish|abandon|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
 - `cnp file add|update|remove|rename ...` explicitly records file lifecycle operations against the active change.
 - `cnp status` and `cnp doctor` inspect repository state and validate local JSON consistency.
 - `cnp history --projection public|private` renders accepted history through projection rules.
 - `cnp projection materialize public|private <out-dir>` writes a filtered tree to disk.
+
+## Change abandonment
+
+Abandoned changes are retained intent history for unaccepted work, not physical deletion. The MVP keeps `active` as the draft-like status name and adds `abandoned` as a terminal state for active/proposed changes. Default change lists hide abandoned changes, `--all` exposes them, proposals are retained for explanation, and private virtual tree replay excludes abandoned workspace effects. Accepted, published, and disclosed changes cannot be abandoned.
 
 ## Active change lifecycle
 

@@ -505,3 +505,312 @@ fn doctor_reports_active_change_lifecycle_problems() {
         .failure()
         .stdout(predicate::str::contains("active change does not exist"));
 }
+
+#[test]
+fn abandon_hides_change_by_default_and_cleans_added_file() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+
+    run(&repo, &["change", "start", "Bad idea"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+    run(&repo, &["change", "abandon", "Bad idea"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active change: none"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bad idea").not());
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "list", "--all"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bad idea"))
+        .stdout(predicate::str::contains("abandoned"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Bad idea"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Status: abandoned"));
+
+    let private = temp.path().join("abandoned-private");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert!(!private.join("bad.txt").exists());
+}
+
+#[test]
+fn abandon_retains_proposal_but_excludes_history() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("maybe.txt"), "maybe\n").unwrap();
+
+    run(&repo, &["change", "start", "Maybe"]);
+    run(&repo, &["file", "add", "maybe.txt"]);
+    run(&repo, &["change", "propose", "Maybe"]);
+    run(&repo, &["change", "abandon", "Maybe"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Maybe"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Status: abandoned"))
+        .stdout(predicate::str::contains("add maybe.txt"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "private"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Maybe").not());
+}
+
+#[test]
+fn abandon_refuses_accepted_published_and_disclosed_changes() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("a.txt"), "a\n").unwrap();
+    fs::write(repo.join("b.txt"), "b\n").unwrap();
+
+    run(&repo, &["change", "start", "Accepted"]);
+    run(&repo, &["file", "add", "a.txt"]);
+    run(&repo, &["change", "propose", "Accepted"]);
+    run(&repo, &["change", "accept", "Accepted"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "abandon", "Accepted"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be abandoned"));
+    run(&repo, &["change", "publish", "Accepted", "--to", "public"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "abandon", "Accepted"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be abandoned"));
+
+    run(&repo, &["change", "finish", "Accepted"]);
+    run(&repo, &["change", "start", "Disclosed"]);
+    run(&repo, &["file", "add", "b.txt"]);
+    run(&repo, &["change", "propose", "Disclosed"]);
+    run(&repo, &["change", "accept", "Disclosed"]);
+    run(
+        &repo,
+        &["change", "disclose", "Disclosed", "--to", "public"],
+    );
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "abandon", "Disclosed"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be abandoned"));
+}
+
+#[test]
+fn abandon_replays_private_tree_without_update_remove_or_rename_effects() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("stable.txt"), "v1\n").unwrap();
+    fs::write(repo.join("remove.txt"), "keep\n").unwrap();
+    fs::write(repo.join("rename.txt"), "name\n").unwrap();
+
+    run(&repo, &["change", "start", "Base"]);
+    run(&repo, &["file", "add", "stable.txt"]);
+    run(&repo, &["file", "add", "remove.txt"]);
+    run(&repo, &["file", "add", "rename.txt"]);
+    run(&repo, &["change", "finish", "Base"]);
+
+    fs::write(repo.join("stable.txt"), "v2\n").unwrap();
+    run(&repo, &["change", "start", "Bad update"]);
+    run(&repo, &["file", "update", "stable.txt"]);
+    run(&repo, &["file", "remove", "remove.txt"]);
+    run(&repo, &["file", "rename", "rename.txt", "renamed.txt"]);
+    run(&repo, &["change", "abandon", "Bad update"]);
+
+    let private = temp.path().join("replayed-private");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(private.join("stable.txt")).unwrap(),
+        "v1\n"
+    );
+    assert_eq!(
+        fs::read_to_string(private.join("remove.txt")).unwrap(),
+        "keep\n"
+    );
+    assert_eq!(
+        fs::read_to_string(private.join("rename.txt")).unwrap(),
+        "name\n"
+    );
+    assert!(!private.join("renamed.txt").exists());
+}
+
+#[test]
+fn doctor_understands_abandoned_lifecycle_invariants() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+    run(&repo, &["change", "start", "Bad"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+    run(&repo, &["change", "abandon", "Bad"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .success();
+
+    let change_path = repo.join(".canopy/changes/bad.json");
+    let impossible = fs::read_to_string(&change_path).unwrap().replace(
+        "\"accepted_at\": null",
+        "\"accepted_at\": \"2026-06-30T00:00:00Z\"",
+    );
+    fs::write(&change_path, impossible).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "abandoned change has accepted/published/disclosed metadata",
+        ));
+    let restored = fs::read_to_string(&change_path).unwrap().replace(
+        "\"accepted_at\": \"2026-06-30T00:00:00Z\"",
+        "\"accepted_at\": null",
+    );
+    fs::write(&change_path, restored).unwrap();
+
+    fs::write(
+        repo.join(".canopy/repo.json"),
+        "{\"name\":\"demo\",\"format\":\"canopy-mvp-1\",\"active_change\":\"bad\"}\n",
+    )
+    .unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "active change points to abandoned",
+        ));
+}
+
+#[test]
+fn abandoned_changes_cannot_be_reproposed_or_accepted() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("maybe.txt"), "maybe\n").unwrap();
+    run(&repo, &["change", "start", "Terminal"]);
+    run(&repo, &["file", "add", "maybe.txt"]);
+    run(&repo, &["change", "propose", "Terminal"]);
+    run(&repo, &["change", "abandon", "Terminal"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "propose", "Terminal"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("abandoned and cannot be proposed"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "accept", "Terminal"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("abandoned and cannot be accepted"));
+}
+
+#[test]
+fn abandon_retry_repairs_partial_abandoned_state() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+    run(&repo, &["change", "start", "Partial"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+
+    let change_path = repo.join(".canopy/changes/partial.json");
+    let abandoned = fs::read_to_string(&change_path)
+        .unwrap()
+        .replace("\"status\": \"active\"", "\"status\": \"abandoned\"");
+    fs::write(&change_path, abandoned).unwrap();
+
+    run(&repo, &["change", "abandon", "Partial"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .success();
+    let private = temp.path().join("partial-private");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert!(!private.join("bad.txt").exists());
+}
+
+#[test]
+fn malformed_workspace_ops_fail_doctor_and_abandon_replay() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("base.txt"), "base\n").unwrap();
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+    run(&repo, &["change", "start", "Base malformed"]);
+    run(&repo, &["file", "add", "base.txt"]);
+    run(&repo, &["change", "finish", "Base malformed"]);
+    run(&repo, &["change", "start", "Malformed"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+
+    let ops_path = repo.join(".canopy/workspace-ops.json");
+    let malformed = fs::read_to_string(&ops_path)
+        .unwrap()
+        .replace("\"content\": \"base\\n\",", "");
+    fs::write(&ops_path, malformed).unwrap();
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("malformed workspace operation"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "abandon", "Malformed"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("malformed workspace operation"));
+}

@@ -144,6 +144,14 @@ _Avoid_: Commit, patch only
 The single change that owns a delta's lifecycle, policy, retention contract, and disclosure behavior. Other changes may reference the delta, but they do not own it.
 _Avoid_: Multiple owning changes, ownerless delta
 
+**Change abandonment**:
+A terminal lifecycle event for an unaccepted change whose intent is consciously stopped. Abandonment preserves the fact that the intent existed while preventing the change from entering projection history.
+_Avoid_: Delete change, erase draft, drop commit
+
+**Abandonment reason**:
+A later explanatory classification for why a change was abandoned, such as superseded, cancelled, merged elsewhere, or obsolete. The reason explains the stopped intent; it is not the abandonment event itself.
+_Avoid_: Status subtype, deletion cause, failure code
+
 **Related change reference**:
 A typed relationship from one change to another change's delta or outcome. Related change references express relevance without transferring lifecycle or policy ownership.
 _Avoid_: Shared ownership, duplicate delta

@@ -61,6 +61,7 @@ cnp workspace status
 cnp change propose "OAuth cleanup"
 cnp change accept "OAuth cleanup"
 cnp change finish "OAuth cleanup"
+cnp change abandon "Legacy refactor"      # stop an unaccepted intent
 ```
 
 Promotion creates clean semantic deltas from workspace history. Acceptance is policy-governed. Finishing a change clears the active editing association used by file lifecycle commands; it does not accept, publish, disclose, delete, or compact the change.

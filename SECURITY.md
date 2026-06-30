@@ -19,7 +19,7 @@ Canopy is currently an MVP/prototype. The implemented `cnp` command is local-onl
 
 ## Persistence limits
 
-Finishing a change clears only the local active-change metadata pointer. It does not delete stored workspace operations, semantic deltas, virtual-tree content, or plaintext secret data.
+Finishing a change clears only the local active-change metadata pointer. It does not delete stored workspace operations, semantic deltas, virtual-tree content, or plaintext secret data. Abandoning a change removes its effect from the current private virtual tree by replaying non-abandoned operations, but it still retains abandoned workspace operations and any secret content they captured in plaintext JSON. Abandonment replay refuses malformed non-abandoned workspace operation records rather than silently repairing or dropping them.
 
 
 - JSON state writes use write-then-rename for individual state files.

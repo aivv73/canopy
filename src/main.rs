@@ -60,7 +60,10 @@ enum ChangeCommand {
     Start {
         name: String,
     },
-    List,
+    List {
+        #[arg(long)]
+        all: bool,
+    },
     Show {
         change: String,
     },
@@ -69,6 +72,9 @@ enum ChangeCommand {
         change: String,
     },
     Finish {
+        change: String,
+    },
+    Abandon {
         change: String,
     },
     Propose {
@@ -181,12 +187,12 @@ struct RepoMeta {
 }
 
 /// Temporary private full-tree cache for MVP materialization.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq)]
 struct VirtualTree {
     files: BTreeMap<String, FileEntry>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 struct FileEntry {
     content: String,
     class: FileClass,
@@ -246,12 +252,30 @@ struct Change {
     disclosed_at: Option<DateTime<Utc>>,
 }
 
+impl Change {
+    fn has_accepted_or_visible_metadata(&self) -> bool {
+        self.accepted_at.is_some() || self.published_at.is_some() || self.disclosed_at.is_some()
+    }
+
+    fn can_be_abandoned(&self) -> bool {
+        matches!(self.status, ChangeStatus::Active | ChangeStatus::Proposed)
+            && !self.has_accepted_or_visible_metadata()
+    }
+}
+
+/// MVP lifecycle state persisted for a change.
+///
+/// `Abandoned` is terminal for unaccepted changes. Abandoned changes may retain
+/// workspace operations and promotion proposals as intent history, but must not
+/// have accepted, published, or disclosed lifecycle metadata and must not be the
+/// repository's active change.
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 enum ChangeStatus {
     Active,
     Proposed,
     Accepted,
+    Abandoned,
 }
 
 impl std::fmt::Display for ChangeStatus {
@@ -260,6 +284,7 @@ impl std::fmt::Display for ChangeStatus {
             Self::Active => "active",
             Self::Proposed => "proposed",
             Self::Accepted => "accepted",
+            Self::Abandoned => "abandoned",
         })
     }
 }
@@ -292,11 +317,12 @@ fn main() -> Result<()> {
         Command::Init { path } => init(path),
         Command::Change { command } => match command {
             ChangeCommand::Start { name } => change_start(&name),
-            ChangeCommand::List => change_list(),
+            ChangeCommand::List { all } => change_list(all),
             ChangeCommand::Show { change } => change_show(&change),
             ChangeCommand::Current => change_current(),
             ChangeCommand::Proposal { change } => proposal_show(&change),
             ChangeCommand::Finish { change } => change_finish(&change),
+            ChangeCommand::Abandon { change } => change_abandon(&change),
             ChangeCommand::Propose { change } => change_propose(&change),
             ChangeCommand::Accept { change } => change_accept(&change),
             ChangeCommand::Publish { change, to } => {
@@ -402,11 +428,14 @@ fn status() -> Result<()> {
     Ok(())
 }
 
-fn change_list() -> Result<()> {
+fn change_list(all: bool) -> Result<()> {
     let root = repo_root()?;
     let mut changes = load_changes(&root)?;
     changes.sort_by_key(|c| c.created_at);
     for change in changes {
+        if !all && change.status == ChangeStatus::Abandoned {
+            continue;
+        }
         println!(
             "{}\tchange/{}\t{}",
             change.name, change.handle, change.status
@@ -494,6 +523,43 @@ fn change_finish(change_ref: &str) -> Result<()> {
     println!("Finished active change: {}", change.name);
     println!("Handle: change/{}", change.handle);
     println!("Active change: none");
+    Ok(())
+}
+
+fn change_abandon(change_ref: &str) -> Result<()> {
+    let root = repo_root()?;
+    let handle = resolve_change_handle(change_ref);
+    let path = change_path(&root, &handle);
+    let mut change: Change = read_json(&path)?;
+    if !change.can_be_abandoned() && change.status != ChangeStatus::Abandoned {
+        bail!(
+            "change/{} is accepted or visible and cannot be abandoned; use a future revert or supersede workflow",
+            handle
+        );
+    }
+    let was_abandoned = change.status == ChangeStatus::Abandoned;
+
+    if !was_abandoned {
+        change.status = ChangeStatus::Abandoned;
+        write_json(&path, &change)?;
+    }
+
+    let mut meta = read_repo_meta(&root)?;
+    if meta.active_change.as_deref() == Some(&handle) {
+        meta.active_change = None;
+        write_json(&root.join("repo.json"), &meta)?;
+    }
+    rebuild_private_virtual_tree(&root)?;
+
+    if was_abandoned {
+        println!("Change already abandoned: {}", change.name);
+    } else {
+        println!("Abandoned change: {}", change.name);
+    }
+    println!("Handle: change/{}", change.handle);
+    if meta.active_change.is_none() {
+        println!("Active change: none");
+    }
     Ok(())
 }
 
@@ -684,6 +750,9 @@ fn change_propose(change_ref: &str) -> Result<()> {
     let root = repo_root()?;
     let handle = resolve_change_handle(change_ref);
     let mut change: Change = read_json(&change_path(&root, &handle))?;
+    if change.status == ChangeStatus::Abandoned {
+        bail!("change/{} is abandoned and cannot be proposed", handle);
+    }
     let ops: WorkspaceOps = read_json(&root.join("workspace-ops.json"))?;
     let change_ops: Vec<_> = ops
         .ops
@@ -725,6 +794,9 @@ fn change_accept(change_ref: &str) -> Result<()> {
     let root = repo_root()?;
     let handle = resolve_change_handle(change_ref);
     let mut change: Change = read_json(&change_path(&root, &handle))?;
+    if change.status == ChangeStatus::Abandoned {
+        bail!("change/{} is abandoned and cannot be accepted", handle);
+    }
     if change.proposal.is_none() {
         bail!("change/{} has no promotion proposal", handle);
     }
@@ -810,6 +882,67 @@ fn history(projection: Projection) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn rebuild_private_virtual_tree(root: &Path) -> Result<()> {
+    let tree = build_private_virtual_tree(root)?;
+    write_json(&root.join("virtual-tree.json"), &tree)
+}
+
+fn build_private_virtual_tree(root: &Path) -> Result<VirtualTree> {
+    // Canonical MVP replay for the private virtual-tree cache. Operations owned
+    // by abandoned changes are retained as workspace history but intentionally
+    // skipped so abandoned effects disappear from current private state.
+    let changes = load_changes(root)?;
+    let change_status: BTreeMap<_, _> = changes
+        .into_iter()
+        .map(|change| (change.handle, change.status))
+        .collect();
+    let ops: WorkspaceOps = read_json(&root.join("workspace-ops.json"))?;
+    let mut tree = VirtualTree::default();
+
+    for op in ops.ops {
+        if change_status.get(&op.change) == Some(&ChangeStatus::Abandoned) {
+            continue;
+        }
+        match op.kind {
+            OpKind::Add | OpKind::Update => {
+                let content = op.content.ok_or_else(|| {
+                    anyhow!(
+                        "malformed workspace operation {}: add/update missing content for {}",
+                        op.id,
+                        op.path
+                    )
+                })?;
+                tree.files.insert(
+                    op.path,
+                    FileEntry {
+                        content,
+                        class: op.class,
+                        updated_at: op.created_at,
+                    },
+                );
+            }
+            OpKind::Remove => {
+                tree.files.remove(&op.path);
+            }
+            OpKind::Rename => {
+                let new_path = op.new_path.ok_or_else(|| {
+                    anyhow!(
+                        "malformed workspace operation {}: rename missing new path for {}",
+                        op.id,
+                        op.path
+                    )
+                })?;
+                if let Some(mut entry) = tree.files.remove(&op.path) {
+                    entry.class = op.class;
+                    entry.updated_at = op.created_at;
+                    tree.files.insert(new_path, entry);
+                }
+            }
+        }
+    }
+    Ok(tree)
 }
 
 fn materialize(projection: Projection, out_dir: &Path) -> Result<()> {
@@ -948,6 +1081,12 @@ fn doctor() -> Result<()> {
     let change_handles: Vec<_> = changes.iter().map(|c| c.handle.clone()).collect();
     if let Some(active) = active_handle {
         if let Some(change) = changes.iter().find(|c| c.handle == active) {
+            if change.status == ChangeStatus::Abandoned {
+                errors.push(format!(
+                    "active change points to abandoned change/{}",
+                    active
+                ));
+            }
             if change.status == ChangeStatus::Accepted {
                 warnings.push(format!(
                     "accepted change is still active; run `cnp change finish change/{}` when editing is complete",
@@ -960,6 +1099,18 @@ fn doctor() -> Result<()> {
                     active
                 ));
             }
+        }
+    }
+    for change in &changes {
+        if change.status == ChangeStatus::Abandoned
+            && (change.accepted_at.is_some()
+                || change.published_at.is_some()
+                || change.disclosed_at.is_some())
+        {
+            errors.push(format!(
+                "abandoned change has accepted/published/disclosed metadata: change/{}",
+                change.handle
+            ));
         }
     }
 
@@ -997,6 +1148,14 @@ fn doctor() -> Result<()> {
                 if let Err(e) = validate_virtual_path(path) {
                     errors.push(format!("virtual tree has invalid path: {e}"));
                 }
+            }
+            match build_private_virtual_tree(&root) {
+                Ok(expected) if expected != tree => errors.push(
+                    "virtual tree does not match replay of non-abandoned workspace operations"
+                        .to_string(),
+                ),
+                Ok(_) => {}
+                Err(e) => errors.push(format!("cannot replay private virtual tree: {e}")),
             }
         }
         Err(e) => errors.push(format!("cannot read virtual tree: {e}")),
