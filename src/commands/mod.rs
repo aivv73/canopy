@@ -32,6 +32,7 @@ pub fn run(command: Command) -> Result<()> {
             ChangeCommand::Current => change::current(),
             ChangeCommand::Proposal { change: change_ref } => change::proposal_show(&change_ref),
             ChangeCommand::Operations { change: change_ref } => change::operations(&change_ref),
+            ChangeCommand::Preview { change: change_ref } => change::preview(&change_ref),
             ChangeCommand::Finish { change: change_ref } => change::finish(&change_ref),
             ChangeCommand::Abandon { change: change_ref } => change::abandon(&change_ref),
             ChangeCommand::Propose { change: change_ref } => change::propose(&change_ref),

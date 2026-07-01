@@ -60,6 +60,9 @@ pub enum ChangeCommand {
     Operations {
         change: String,
     },
+    Preview {
+        change: String,
+    },
     Finish {
         change: String,
     },

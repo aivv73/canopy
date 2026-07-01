@@ -323,6 +323,69 @@ fn human_stable_workspace_operation_snapshots_cover_empty_and_mixed_views() {
 }
 
 #[test]
+fn human_stable_preview_snapshots_cover_empty_mixed_and_non_mutation() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    run(&repo, &["change", "start", "Empty preview"]);
+    insta::assert_snapshot!(
+        "empty_promotion_preview_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "preview", "Empty preview"]))
+    );
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "proposal", "Empty preview"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("has no promotion proposal"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Empty preview"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Status: active"));
+    run(&repo, &["change", "finish", "Empty preview"]);
+
+    fs::write(repo.join("README.md"), "v1\n").unwrap();
+    fs::write(repo.join("notes.txt"), "notes\n").unwrap();
+    run(&repo, &["change", "start", "Preview me"]);
+    run(&repo, &["file", "add", "README.md"]);
+    fs::write(repo.join("README.md"), "v2\n").unwrap();
+    run(&repo, &["file", "update", "README.md"]);
+    run(&repo, &["file", "rename", "README.md", "README2.md"]);
+    run(&repo, &["file", "add", "notes.txt"]);
+    run(&repo, &["file", "remove", "notes.txt"]);
+
+    insta::assert_snapshot!(
+        "mixed_promotion_preview_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "preview", "Preview me"]))
+    );
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "proposal", "Preview me"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("has no promotion proposal"));
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Preview me"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Status: active"));
+
+    run(&repo, &["change", "abandon", "Preview me"]);
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "preview", "Preview me"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "change/preview-me is abandoned and cannot be previewed or proposed",
+        ));
+}
+
+#[test]
 fn human_stable_doctor_snapshots_cover_healthy_and_active_warning_views() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

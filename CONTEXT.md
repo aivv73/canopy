@@ -160,6 +160,10 @@ _Avoid_: Automatic commit, unchecked agent summary
 A human-facing inspection view that explains proposed semantic deltas and their workspace derivation before acceptance, without making raw workspace operation IDs the primary model.
 _Avoid_: Patch preview, raw operation list, commit diff, review UI
 
+**Promotion preview view**:
+A human-facing local inspection view that shows the semantic deltas that would be proposed from a change's workspace operations without creating a promotion proposal or changing lifecycle state.
+_Avoid_: Dry-run commit, patch preview, raw operation log, machine API
+
 **Promotion acceptance**:
 The policy-governed act that makes a promotion proposal part of projection or canonical history. Acceptance records the responsible actor and may require review, tests, or governance depending on policy.
 _Avoid_: Save, auto-publish

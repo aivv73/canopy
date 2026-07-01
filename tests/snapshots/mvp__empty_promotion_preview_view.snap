@@ -1,0 +1,18 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo,\n&[\"change\", \"preview\", \"Empty preview\"]))"
+---
+Promotion preview
+Change: Empty preview
+Handle: change/empty-preview
+Status: active
+
+Semantic deltas
+Deltas: 0
+
+No workspace operations available to propose.
+Record operations with `cnp file add|update|remove|rename ...`.
+
+Workspace derivation
+Derived workspace operations: 0
+Note: preview does not create proposal data or change lifecycle state.

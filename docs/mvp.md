@@ -21,12 +21,13 @@ local virtual tree
 - `cnp change correct <target-change> --kind reversal|supersession --name <name>` creates an active corrective change targeting an accepted change without auto-generating file operations.
 - `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
 - `cnp change abandon <change>` marks an unaccepted change as abandoned intent history, hides it from default change lists, and removes its effects from current private materialization.
-- `cnp change list [--all]|show|current|operations|proposal` inspect changes, workspace operations, and promotion proposals by named references. `list` presents a human change list view with active editing, lifecycle, role, and public visibility summary. `--all` includes abandoned changes in a separate section. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections. `operations` presents the workspace operations attached to one change without raw operation IDs or content blobs.
+- `cnp change list [--all]|show|current|operations|preview|proposal` inspect changes, workspace operations, promotion previews, and promotion proposals by named references. `list` presents a human change list view with active editing, lifecycle, role, and public visibility summary. `--all` includes abandoned changes in a separate section. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections. `operations` presents the workspace operations attached to one change without raw operation IDs or content blobs. `preview` shows semantic deltas that would be proposed without creating proposal data or changing lifecycle state.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
 - `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
 - `cnp file remove <path>` records an explicit removal operation.
 - `cnp file rename <old-path> <new-path> [--class public-source|config-template|secret]` records an explicit rename operation.
 - `cnp change propose <change>` creates semantic deltas from workspace operations.
+- `cnp change preview <change>` shows semantic deltas that would be proposed from workspace operations without mutating repository state.
 - `cnp change accept <change>` accepts the proposal into project history.
 - `cnp change publish <change> --to public` makes public-safe deltas visible in public history.
 - `cnp change disclose <change> --to public` exists as the MVP shape for future disclosure semantics.
@@ -105,11 +106,13 @@ These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; t
 
 The MVP inspection commands are human-facing explanations rather than machine-stable APIs. `cnp change show` summarizes the change intent, lifecycle, active editing association, workspace operation counts, visibility, and promotion proposal. It keeps detailed workspace operation listings out of the default view while still surfacing secret-class operation counts for local awareness.
 
-The human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change list`, `cnp change show`, `cnp change operations`, `cnp change proposal`, and `cnp history --projection public|private`. Human-stable output means section structure, labels, and important explanatory phrases are stable enough for users, docs, and tests; it does not make the text a machine-readable parser contract. Future machine-readable output should be introduced explicitly, such as with a future `--format json`.
+The human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change list`, `cnp change show`, `cnp change operations`, `cnp change preview`, `cnp change proposal`, and `cnp history --projection public|private`. Human-stable output means section structure, labels, and important explanatory phrases are stable enough for users, docs, and tests; it does not make the text a machine-readable parser contract. Future machine-readable output should be introduced explicitly, such as with a future `--format json`.
 
 `cnp change list` is a change list view: a local inspection index of change intent, not projection history, raw storage inventory, or a replacement for `cnp change show`. It groups the active editing change ahead of other changes, shows lifecycle status, primary/corrective role, and public visibility summary, and hides abandoned changes by default with a hint to run `cnp change list --all`. Correction targets, lifecycle timestamps, promotion proposal details, and workspace operation summaries belong in `cnp change show` or `cnp change proposal`.
 
 `cnp change operations` is a workspace operation view: a local inspection view for workspace operations recorded for one change, not projection history, promotion proposal details, raw operation logs, raw JSON, patch previews, or machine API. It lists operation kind, path, rename target, and file class in recorded order while keeping raw operation IDs and content blobs out of normal primary UX.
+
+`cnp change preview` is a promotion preview view: a non-mutating local inspection view for semantic deltas that would be proposed from current workspace operations, not a stored proposal, projection history, raw operation log, patch preview, content preview, or machine API. It does not create proposal data or change lifecycle state.
 
 `cnp change proposal` is a promotion proposal view: a local inspection view for proposed semantic deltas and workspace derivation, not projection history, raw workspace operation audit, patch preview, or machine API. It shows proposed semantic delta names and summarizes derived workspace operation count while keeping raw workspace operation IDs out of normal primary UX.
 

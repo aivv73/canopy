@@ -1,0 +1,20 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo,\n&[\"change\", \"preview\", \"Preview me\"]))"
+---
+Promotion preview
+Change: Preview me
+Handle: change/preview-me
+Status: active
+
+Semantic deltas
+Deltas: 5
+  - add README.md
+  - update README.md
+  - rename README.md to README2.md
+  - add notes.txt
+  - remove notes.txt
+
+Workspace derivation
+Derived workspace operations: 5
+Note: preview does not create proposal data or change lifecycle state.

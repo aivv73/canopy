@@ -64,6 +64,7 @@ Current coverage focuses on:
 - initializing a local repository;
 - starting, proposing, accepting, publishing, listing, and inspecting changes;
 - inspecting repository status and promotion proposals;
+- previewing promotion proposal deltas without creating proposal data or changing lifecycle state;
 - rendering human-stable workspace operation views for empty and mixed operation changes without raw operation IDs or content blobs;
 - finishing active changes and verifying no-active-change command behavior;
 - abandoning unaccepted changes while retaining intent history and replaying private state without abandoned effects;

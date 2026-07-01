@@ -37,7 +37,7 @@ cnp show change/oauth-cleanup --ops
 
 Inspection output is human-facing. `cnp history` should identify the projection being viewed and show visible semantic deltas. `cnp show`/`cnp change show` should explain change identity, lifecycle, active editing association, visibility, and proposal state without turning raw workspace operations or storage identities into the primary model.
 
-The human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change list`, `cnp change show`, `cnp change operations`, `cnp change proposal`, and `cnp history`. Human-stable output preserves section structure, labels, and important explanatory phrases for users, documentation, and tests, but it is not a machine-readable API or parser contract. Future machine-readable output should be explicit, such as a future `--format json`, rather than inferred from human-facing text.
+The human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change list`, `cnp change show`, `cnp change operations`, `cnp change preview`, `cnp change proposal`, and `cnp history`. Human-stable output preserves section structure, labels, and important explanatory phrases for users, documentation, and tests, but it is not a machine-readable API or parser contract. Future machine-readable output should be explicit, such as a future `--format json`, rather than inferred from human-facing text.
 
 Canopy accepts human names, structured refs, and shell-friendly handles, resolving them internally to stable composite references.
 
@@ -62,6 +62,7 @@ cnp workspace status
 ## Promotion
 
 ```bash
+cnp change preview "OAuth cleanup"
 cnp change propose "OAuth cleanup"
 cnp change accept "OAuth cleanup"
 cnp change finish "OAuth cleanup"
@@ -76,6 +77,8 @@ Accepted changes are corrected by new semantic changes, not abandonment or histo
 `cnp change list` is a change list view: a local inspection index of change intent. It groups the active editing change ahead of other changes, shows lifecycle status, primary/corrective role, and public visibility summary, and hides abandoned changes by default with a hint to run `cnp change list --all`. It is not projection history; use `cnp history --projection ...` for accepted semantic history and `cnp change show` for detailed correction targets, lifecycle timestamps, and proposal details.
 
 `cnp change operations` is a workspace operation view: a local inspection view for workspace operations attached to one change. It shows operation kind, path, rename target, and file class without printing raw operation IDs, content blobs, raw JSON, proposal deltas, or public/private projection history.
+
+`cnp change preview` is a promotion preview view: a non-mutating local inspection view for semantic deltas that would be proposed from current workspace operations. It does not create proposal data, change lifecycle state, show raw operation IDs or content, or act as projection history, patch preview, or machine-readable output.
 
 `cnp change proposal` is a promotion proposal view: a local inspection view for proposed semantic deltas and workspace derivation. It summarizes derived workspace operation count without making raw workspace operation IDs the primary normal UX. It is not projection history, a raw workspace operation audit, a patch preview, or a machine-readable API.
 
