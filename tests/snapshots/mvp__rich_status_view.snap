@@ -1,0 +1,30 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo, &[\"status\"]))"
+---
+Canopy repository: demo
+Format: canopy-mvp-1
+
+Active change
+Active change: change/fix-base
+  Name: Fix base
+  Handle: change/fix-base
+  Status: accepted
+  Operations: 1
+Workspace operations: 1
+
+Changes
+  Active: 0
+  Proposed: 0
+  Accepted: 2
+  Abandoned: 1 hidden from default change list
+  Corrective: 1
+
+Private workspace
+  Virtual files: 2
+  Workspace operations: 3
+Workspace operations: 3
+
+Hints
+  accepted change is still active; run `cnp change finish change/fix-base` when editing is complete
+  For consistency checks, run `cnp doctor`

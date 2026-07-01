@@ -1,0 +1,25 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo, &[\"status\"]))"
+---
+Canopy repository: demo
+Format: canopy-mvp-1
+
+Active change
+Active change: none
+  none
+
+Changes
+  Active: 0
+  Proposed: 0
+  Accepted: 0
+  Abandoned: 0 hidden from default change list
+  Corrective: 0
+
+Private workspace
+  Virtual files: 0
+  Workspace operations: 0
+Workspace operations: 0
+
+Hints
+  For consistency checks, run `cnp doctor`

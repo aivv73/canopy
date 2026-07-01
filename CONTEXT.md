@@ -468,6 +468,10 @@ _Avoid_: Commit log, raw operation log
 A human-facing CLI view that explains repository state, change intent, projection history, or diagnostics without making raw storage identities the primary model. Inspection views are not canonical history and may summarize or omit details according to projection and safety rules.
 _Avoid_: Raw database dump, object inspection
 
+**Human-stable output**:
+Inspection output whose section structure, labels, and important explanatory phrases are intentionally kept stable enough for users, documentation, and tests, while not being a machine-readable API. Volatile values such as timestamps, local paths, and future generated operation identifiers may be normalized in tests or documented as unstable.
+_Avoid_: JSON API, parser contract, best-effort text
+
 **Status view**:
 A human-facing local inspection view that summarizes current repository state, active editing association, change lifecycle counts, workspace operation volume, and lightweight next-action hints. A status view is not a consistency audit and does not replace `doctor`.
 _Avoid_: Doctor report, full audit, machine API

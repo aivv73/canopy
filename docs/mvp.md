@@ -105,7 +105,11 @@ These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; t
 
 The MVP inspection commands are human-facing explanations rather than machine-stable APIs. `cnp change show` summarizes the change intent, lifecycle, active editing association, workspace operation counts, visibility, and promotion proposal. It keeps detailed workspace operation listings out of the default view while still surfacing secret-class operation counts for local awareness.
 
+The first human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change show`, and `cnp history --projection public|private`. Human-stable output means section structure, labels, and important explanatory phrases are stable enough for users, docs, and tests; it does not make the text a machine-readable parser contract. `cnp change list` and `cnp change proposal` are intentionally outside this first stabilization batch. Future machine-readable output should be introduced explicitly, such as with a future `--format json`.
+
 `cnp status` is a lightweight status view, not a consistency audit. It summarizes local shape and always points users to `cnp doctor` for replay and storage consistency checks.
+
+The status view may retain temporary legacy compatibility lines while the MVP evolves. Snapshot tests can protect those lines as current human-facing behavior, but they are not a long-term machine API guarantee.
 
 `cnp history --projection public|private` remains projection semantic history: abandoned changes and raw workspace operations are not shown. Public history continues to omit secret semantic deltas and secret paths.
 

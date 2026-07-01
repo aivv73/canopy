@@ -123,6 +123,209 @@ fn run(cwd: &std::path::Path, args: &[&str]) {
         .success();
 }
 
+fn cnp_stdout(cwd: &std::path::Path, args: &[&str]) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(cwd)
+        .args(args)
+        .output()
+        .expect("run cnp");
+    assert!(
+        output.status.success(),
+        "cnp {:?} failed\nstdout:\n{}\nstderr:\n{}",
+        args,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("stdout is utf8")
+}
+
+fn normalize_inspection_output(output: &str) -> String {
+    output
+        .lines()
+        .map(|line| {
+            if [
+                "Created at: ",
+                "Accepted at: ",
+                "Published at: ",
+                "Disclosed at: ",
+                "Proposed at: ",
+                "Visible at: ",
+            ]
+            .iter()
+            .any(|prefix| line.starts_with(prefix))
+            {
+                let (label, _) = line.split_once(": ").expect("timestamp label");
+                format!("{}: <timestamp>", label)
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn human_stable_status_snapshots_cover_fresh_and_rich_views() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    insta::assert_snapshot!(
+        "fresh_status_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["status"]))
+    );
+
+    fs::write(repo.join("base.txt"), "base\n").unwrap();
+    fs::write(repo.join("fix.txt"), "fix\n").unwrap();
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+
+    run(&repo, &["change", "start", "Base"]);
+    run(&repo, &["file", "add", "base.txt"]);
+    run(&repo, &["change", "propose", "Base"]);
+    run(&repo, &["change", "accept", "Base"]);
+    run(&repo, &["change", "publish", "Base", "--to", "public"]);
+    run(&repo, &["change", "finish", "Base"]);
+
+    run(&repo, &["change", "start", "Bad"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+    run(&repo, &["change", "abandon", "Bad"]);
+
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Base",
+            "--kind",
+            "supersession",
+            "--name",
+            "Fix base",
+        ],
+    );
+    run(&repo, &["file", "add", "fix.txt"]);
+    run(&repo, &["change", "propose", "Fix base"]);
+    run(&repo, &["change", "accept", "Fix base"]);
+
+    insta::assert_snapshot!(
+        "rich_status_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["status"]))
+    );
+}
+
+#[test]
+fn human_stable_doctor_snapshots_cover_healthy_and_active_warning_views() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    insta::assert_snapshot!(
+        "healthy_doctor_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["doctor"]))
+    );
+
+    fs::write(repo.join("base.txt"), "base\n").unwrap();
+    run(&repo, &["change", "start", "Base"]);
+    run(&repo, &["file", "add", "base.txt"]);
+    run(&repo, &["change", "propose", "Base"]);
+    run(&repo, &["change", "accept", "Base"]);
+
+    insta::assert_snapshot!(
+        "accepted_active_doctor_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["doctor"]))
+    );
+}
+
+#[test]
+fn human_stable_change_show_snapshot_covers_corrective_change() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("legacy.conf"), "legacy\n").unwrap();
+
+    run(&repo, &["change", "start", "Add legacy config"]);
+    run(&repo, &["file", "add", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Add legacy config"]);
+    run(&repo, &["change", "accept", "Add legacy config"]);
+    run(
+        &repo,
+        &["change", "publish", "Add legacy config", "--to", "public"],
+    );
+    run(&repo, &["change", "finish", "Add legacy config"]);
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Add legacy config",
+            "--kind",
+            "reversal",
+            "--name",
+            "Reverse legacy config",
+        ],
+    );
+    run(&repo, &["file", "remove", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Reverse legacy config"]);
+    run(&repo, &["change", "accept", "Reverse legacy config"]);
+
+    insta::assert_snapshot!(
+        "accepted_corrective_change_show_view",
+        normalize_inspection_output(&cnp_stdout(
+            &repo,
+            &["change", "show", "Reverse legacy config"]
+        ))
+    );
+}
+
+#[test]
+fn human_stable_public_history_snapshot_covers_visible_correction_link() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("legacy.conf"), "legacy\n").unwrap();
+
+    run(&repo, &["change", "start", "Add legacy config"]);
+    run(&repo, &["file", "add", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Add legacy config"]);
+    run(&repo, &["change", "accept", "Add legacy config"]);
+    run(
+        &repo,
+        &["change", "publish", "Add legacy config", "--to", "public"],
+    );
+    run(&repo, &["change", "finish", "Add legacy config"]);
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Add legacy config",
+            "--kind",
+            "reversal",
+            "--name",
+            "Reverse legacy config",
+        ],
+    );
+    run(&repo, &["file", "remove", "legacy.conf"]);
+    run(&repo, &["change", "propose", "Reverse legacy config"]);
+    run(&repo, &["change", "accept", "Reverse legacy config"]);
+    run(
+        &repo,
+        &[
+            "change",
+            "publish",
+            "Reverse legacy config",
+            "--to",
+            "public",
+        ],
+    );
+
+    let public_history = cnp_stdout(&repo, &["history", "--projection", "public"]);
+    assert!(public_history.contains("Corrects: change/add-legacy-config"));
+    insta::assert_snapshot!(
+        "public_history_visible_correction_view",
+        normalize_inspection_output(&public_history)
+    );
+}
+
 #[test]
 fn public_materialization_only_includes_published_accepted_changes() {
     let temp = tempdir().unwrap();

@@ -37,6 +37,8 @@ cnp show change/oauth-cleanup --ops
 
 Inspection output is human-facing. `cnp history` should identify the projection being viewed and show visible semantic deltas. `cnp show`/`cnp change show` should explain change identity, lifecycle, active editing association, visibility, and proposal state without turning raw workspace operations or storage identities into the primary model.
 
+The first human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change show`, and `cnp history`. Human-stable output preserves section structure, labels, and important explanatory phrases for users, documentation, and tests, but it is not a machine-readable API or parser contract. `cnp change list` and `cnp change proposal` are not part of this first stabilization batch. Future machine-readable output should be explicit, such as a future `--format json`, rather than inferred from human-facing text.
+
 Canopy accepts human names, structured refs, and shell-friendly handles, resolving them internally to stable composite references.
 
 ## Change-first editing
@@ -105,6 +107,8 @@ cnp conflict resolve conflict/oauth-issuer-rename
 Status, CI checks, logs, artifacts, and conflict details are all policy-filtered.
 
 `cnp status` is a lightweight local status view: it summarizes repository format, active editing association, change lifecycle counts, workspace operation volume, virtual file count, and simple next-action hints. It does not run a full consistency audit.
+
+The MVP may temporarily retain legacy compatibility lines in status output while the status view evolves. Those lines are part of current human-stable output tests, not a long-term machine contract.
 
 `cnp doctor` is a diagnostic inspection view: it groups errors and warnings, offers selected next-action hints, and does not silently repair repository state.
 

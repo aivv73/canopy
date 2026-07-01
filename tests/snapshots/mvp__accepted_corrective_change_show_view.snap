@@ -1,0 +1,25 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo,\n&[\"change\", \"show\", \"Reverse legacy config\"]))"
+---
+Identity
+Change: Reverse legacy config
+Handle: change/reverse-legacy-config
+Lifecycle
+Status: accepted
+Created at: <timestamp>
+Accepted at: <timestamp>
+Active editing: yes
+Workspace operations
+Operations: 1
+Operation summary:
+  - remove: 1
+Visibility
+Public visibility: not visible
+Correction
+Correction kind: reversal
+Corrects: change/add-legacy-config
+Promotion proposal
+Promotion proposal: 1 semantic deltas
+Proposed at: <timestamp>
+  - remove legacy.conf

@@ -1,0 +1,27 @@
+---
+source: tests/mvp.rs
+expression: normalize_inspection_output(&public_history)
+---
+Projection history
+Projection: public
+History kind: accepted semantic deltas
+
+Change: Add legacy config
+Handle: change/add-legacy-config
+Status: accepted
+Visibility: public
+Visible at: <timestamp>
+Deltas:
+  - add legacy.conf
+
+Change: Reverse legacy config
+Handle: change/reverse-legacy-config
+Status: accepted
+Visibility: public
+Visible at: <timestamp>
+Correction kind: reversal
+Corrects: change/add-legacy-config
+Deltas:
+  - remove legacy.conf
+
+Changes shown: 2

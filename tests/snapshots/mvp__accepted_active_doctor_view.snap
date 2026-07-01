@@ -1,0 +1,13 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo, &[\"doctor\"]))"
+---
+Canopy doctor
+Checks: local JSON state, change lifecycle, virtual paths, private tree replay
+Status: healthy
+Errors: 0
+Warnings: 2
+Warning: MVP secret privacy is projection filtering over plaintext local JSON, not encryption
+Warning: accepted change is still active; run `cnp change finish change/base` when editing is complete
+Hints:
+Hint: run `cnp change finish change/base` when editing for that accepted change is complete
