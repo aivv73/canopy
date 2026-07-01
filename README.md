@@ -45,6 +45,7 @@ cnp change disclose "SEC-2026-01" --to public
 - [`docs/cli.md`](./docs/cli.md) — CLI shape and example workflows.
 - [`docs/mvp.md`](./docs/mvp.md) — local MVP scope, commands, and security limits.
 - [`docs/canopy-refs.md`](./docs/canopy-refs.md) — prior art and positioning notes.
+- [`docs/trust.md`](./docs/trust.md) — trust model vocabulary, manifest, bootstrap, and capability prep.
 - [`docs/adr/`](./docs/adr/) — architectural decisions captured during design.
 - [`docs/agents/`](./docs/agents/) — agent-consumable repo workflow configuration.
 

@@ -55,6 +55,8 @@ The MVP provides **projection filtering only**.
 
 Cryptographic enforcement, encryption domains, signatures, capabilities, key rotation, revocation, and cryptographic erasure are future slices.
 
+Trust-model implementation is also out of scope for the MVP. The docs define repository identity, projection signers, projection manifests, trust bundles, invitation capabilities, and capability scope as future trust boundaries, but the local MVP does not generate keys, sign manifests, evaluate capability tokens, or encrypt local storage.
+
 ## Storage
 
 The MVP stores readable JSON under `.canopy/` so the model can be inspected and changed quickly. JSON storage is temporary and may be replaced by SQLite, content-addressed storage, or another persistence layer later. The CLI rejects unsupported repository format values and reports missing or corrupt JSON state with the affected state file path. Cross-file updates are still not transactional.

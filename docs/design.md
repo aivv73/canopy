@@ -40,6 +40,12 @@ Canopy uses layered encryption domains aligned with policy boundaries, hierarchi
 
 Clone bootstraps trust in repository identity, projection signers, policy roots, and optional invitation capabilities. A hosting URL is not the repository identity.
 
+Repository identity is the first trust anchor, while projection identity controls visible semantics for an audience. Projection signers are delegated under repository policy and sign audience-scoped projection manifests, not hidden canonical graph structure. User references remain projection-semantic; storage or content identities must not become the user-facing or trust identity model.
+
+Capability sets are scope- and purpose-bound first, with optional actor or device binding. Public projection metadata must not reveal hidden change existence, hidden relation or correction targets, private actors, private lifecycle timestamps, hidden policy rules, private capability grants, hidden CI domains, hidden file paths or digests, or canonical storage graph shape.
+
+The trust model prep notes in [`trust.md`](./trust.md) define the current vocabulary for projection manifests, bootstrap modes, capability-token requirements, and future trust testing. They are design boundaries, not an implemented crypto layer.
+
 Canopy should not choose crypto, capability-token, storage, network, or live-collaboration libraries before the corresponding domain boundary is stable. The MVP prioritizes store/replay/projection correctness; future slices can evaluate storage backends, cryptographic primitives, capability systems, sync transports, and CRDTs against explicit Canopy invariants. Future sync semantics should be transport-agnostic: WebSocket, HTTP manifest exchange, QUIC, and local test adapters are transport options, not the semantic model.
 
 ## CI and automation

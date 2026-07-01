@@ -77,7 +77,7 @@ The layered rule model that decides intended visibility and workflow behavior: r
 _Avoid_: Single privacy flag, ad hoc policy
 
 **Capability set**:
-The authorization material that enforces what an actor can actually access, combining decryption keys with policy claims such as audience, projection, workspace, purpose, and expiry. Capability sets enforce the policy stack but are not themselves the domain policy language.
+The authorization material that enforces what an actor can actually access, combining decryption keys with policy claims such as repository identity, audience, projection, workspace, purpose, and expiry. Capability sets are scope- and purpose-bound first, may additionally bind actor or device identity, and enforce the policy stack without being the domain policy language itself.
 _Avoid_: Policy document, visibility rule, decryption key only
 
 **Governance event**:
@@ -245,12 +245,16 @@ An integrity proof applied at the appropriate domain layer, such as canonical ob
 _Avoid_: Single commit signature, unsigned projection
 
 **Projection manifest**:
-A signed description of the semantic history and visible objects included in a projection for an audience. Projection manifests let clients verify a coherent projection without learning hidden canonical graph structure.
+A signed, audience-scoped description of the semantic history, visible file or object digests, visible relation metadata, policy context, and repository identity needed to verify a coherent projection without learning hidden canonical graph structure.
 _Avoid_: Raw object list, hidden graph proof
 
 **Projection signer**:
-The identity or service that signs a projection manifest for an audience. A projection signer may attest to public semantic history without exposing private author identities or private signing events.
+The delegated identity or service that signs a projection manifest for an audience under repository policy. A projection signer may attest to public semantic history without exposing private author identities, private signing events, or hidden canonical graph structure.
 _Avoid_: Original author signature by default, anonymous tamper proof
+
+**Actor identity**:
+The identity of a human, service, agent, CI job, or other authorised actor that may receive capabilities, perform operations, or appear in provenance according to policy. Actor identity is distinct from repository identity, projection identity, and internal storage identity.
+_Avoid_: User account only, storage author field
 
 **Unauthorized public observer**:
 An actor limited to public projections and public network-visible metadata. Canopy's default privacy model is designed to prevent this actor from learning hidden content, existence, structure, timing, effects, or sensitive relations.
@@ -289,8 +293,8 @@ An optional policy and implementation mode that reduces operational metadata lea
 _Avoid_: Default guarantee, content encryption only
 
 **Repository identity**:
-The stable cryptographic identity of a Canopy repository, independent of any hosting URL. Repository identity anchors trust in projection signers, policy roots, and capability grants.
-_Avoid_: Hosting URL, remote name
+The stable cryptographic identity of a Canopy repository, independent of any hosting URL, local path, or storage object ID. Repository identity anchors trust in projection signers, policy roots, trust bundles, and capability grants.
+_Avoid_: Hosting URL, remote name, content hash
 
 **Trust bundle**:
 The bootstrap material used by `cnp clone` to verify and enter a repository, including repository identity, projection signer information, policy roots, and optional invitation capabilities.
