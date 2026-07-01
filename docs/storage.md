@@ -120,3 +120,24 @@ before selection.
 Do not select SQLite, `redb`, binary encodings, or a `RepositoryStore` trait only
 because they are plausible. The next backend choice should be made after the
 store contract and write groups have proven stable under local workflow changes.
+
+## Compatibility guardrails
+
+See also [`adr/0021-mvp-storage-format-allows-additive-optional-fields-only.md`](./adr/0021-mvp-storage-format-allows-additive-optional-fields-only.md).
+
+The current supported storage format is `canopy-mvp-1`. Within that format,
+compatible changes are limited to additive optional fields with safe defaults.
+Removing or renaming fields, changing the meaning of required fields, adding
+required fields without defaults, changing enum values, or changing replay,
+projection, lifecycle, materialization-marker, or persisted path-validation
+semantics requires a storage format bump.
+
+Unknown extra JSON fields may be ignored by the MVP reader. That is a tolerance
+of the current JSON implementation, not a supported extension mechanism.
+Unknown fields carry no Canopy semantics and may be rejected by future stricter
+validation or migration tools.
+
+`cnp doctor` reports compatibility and consistency problems such as unsupported
+formats, malformed JSON, unknown enum values, missing required fields, malformed
+workspace operations, and replay/cache mismatches. It does not migrate or repair
+repository state. Future migration or repair commands must be explicit.

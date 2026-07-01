@@ -711,6 +711,53 @@ fn doctor_reports_health_and_storage_errors() {
 }
 
 #[test]
+fn storage_format_tolerates_extra_fields_but_rejects_unknown_enums_and_missing_required_fields() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    run(&repo, &["change", "start", "Compat"]);
+    run(&repo, &["file", "add", "README.md"]);
+
+    let change_path = repo.join(".canopy/changes/compat.json");
+    let original = fs::read_to_string(&change_path).unwrap();
+    let with_unknown = original.replace("\n}", ",\n  \"future_field\": \"ignored by MVP\"\n}");
+    fs::write(&change_path, with_unknown).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["change", "show", "Compat"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Change: Compat"))
+        .stdout(predicate::str::contains("Correction: none"));
+
+    let unknown_enum = fs::read_to_string(&change_path)
+        .unwrap()
+        .replace("\"status\": \"active\"", "\"status\": \"paused\"");
+    fs::write(&change_path, unknown_enum).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("cannot read changes"));
+
+    let missing_required = original
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("\"handle\":"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    fs::write(&change_path, missing_required).unwrap();
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("cannot read changes"));
+}
+
+#[test]
 fn public_materialization_does_not_read_unpublished_private_tree_state() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

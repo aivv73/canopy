@@ -26,6 +26,7 @@ Finishing a change clears only the local active-change metadata pointer. It does
 
 - JSON state writes use write-then-rename for individual state files.
 - Cross-file updates are not transactional in this MVP.
+- Within `canopy-mvp-1`, compatible persisted-shape changes are limited to additive optional fields with safe defaults. Removing or renaming fields, adding required fields, changing enum meanings, or changing replay/projection/materialization/path-validation semantics requires a future storage format bump and explicit migration path. Unknown JSON fields may be tolerated by the MVP reader but are not supported extension points.
 - There is no schema migration, corruption recovery, or authenticated storage yet. The diagnostic command reports local consistency problems but does not repair them.
 
 ## Out of scope for this MVP

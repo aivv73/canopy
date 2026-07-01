@@ -36,6 +36,18 @@ _Avoid_: Public object ID, Git SHA
 The persistence boundary for repository records such as metadata, changes, workspace operations, virtual-tree caches, projection packages, policy roots, trust material, and future manifests. A repository store preserves records and write-group invariants; it does not decide projection visibility or materialization behavior.
 _Avoid_: Database choice, storage backend as architecture
 
+**Storage format**:
+The versioned shape and semantics of persisted repository records. A storage format covers required fields, optional fields, enum values, record meaning, and replay or projection interpretation.
+_Avoid_: File extension, backend name
+
+**Compatible storage change**:
+A change to persisted repository records that existing supported readers can load safely without changing the meaning of existing records. In the MVP, compatible storage changes are limited to additive optional fields with safe defaults.
+_Avoid_: Serde happens to parse it, silent semantic change
+
+**Storage migration**:
+An explicit operation that transforms persisted repository records from one storage format to another. Migration is separate from diagnostics; `doctor` reports consistency problems but does not rewrite state.
+_Avoid_: Automatic repair, implicit upgrade
+
 **Projection identity**:
 An identity that names semantic history within a specific projection rather than a storage object in the canonical graph. Projection identities remain tied to their projection's published meaning; disclosure publishes new semantic history instead of silently changing what an existing projection identity means.
 _Avoid_: Global public ID, storage alias

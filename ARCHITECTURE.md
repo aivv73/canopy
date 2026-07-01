@@ -45,6 +45,8 @@ The repository store is the persistence contract. `LocalStore` is the current JS
 
 The store owns repository discovery, storage-format checks, record persistence, workspace-operation append semantics, and future transaction boundaries. Projection filtering, relation visibility, materialization safety, command output, and semantic workflow orchestration stay outside the store boundary.
 
+Within the `canopy-mvp-1` storage format, compatible changes are additive optional fields with safe defaults only. Unknown JSON fields may be ignored by the current MVP reader but are not a supported extension mechanism. Incompatible persisted-shape or semantic changes require a future storage format bump and explicit migration path.
+
 Important write groups are: initialize repository; start change; start corrective change; record file operation; finish change; propose change; accept change; publish or disclose change; abandon change; rebuild private virtual-tree cache. The JSON MVP may update multiple files non-transactionally, but future stores should treat these as named groups when adding atomicity.
 
 Workspace operations are semantically append-only even though the JSON MVP rewrites `workspace-ops.json`. The private virtual tree is a replay-validated cache for private materialization, not the authority for projection correctness.

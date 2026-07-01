@@ -65,6 +65,8 @@ The Rust implementation keeps JSON access behind `LocalStore` in `src/storage.rs
 
 Corrective-change metadata is an additive optional field in change records. Existing MVP JSON change records without correction metadata still load as non-corrective changes.
 
+Within `canopy-mvp-1`, compatible storage changes are limited to additive optional fields with safe defaults. Unknown extra JSON fields may be ignored by the current MVP reader, but they are not a supported extension mechanism. Removing or renaming fields, adding required fields, changing enum meanings, or changing replay/projection semantics requires a future storage format bump. `cnp doctor` reports storage problems but does not migrate or repair state.
+
 Future storage work should define repository-store and replay boundaries before choosing SQLite, `redb`, compact binary encodings, or other persistence technology. Inspectability, migration, and forward compatibility matter more than early encoding density in the MVP.
 
 The repository store is the persistence contract; `LocalStore` is the current JSON-backed local implementation. The store owns repository records and write-group invariants, while projection/replay owns visibility and materialization owns filesystem writes. Workspace operations are semantically append-only even though the JSON MVP rewrites one file. The private virtual tree is a replay-validated cache, and `doctor` checks it against workspace operation replay.
