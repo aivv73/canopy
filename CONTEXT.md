@@ -152,6 +152,10 @@ _Avoid_: Mandatory operation preservation, hidden ancestry
 A proposed semantic delta or set of deltas derived from workspace history. Any authorised human, agent, or tool may propose one, but it enters canonical history only after acceptance under the applicable policy.
 _Avoid_: Automatic commit, unchecked agent summary
 
+**Promotion proposal view**:
+A human-facing inspection view that explains proposed semantic deltas and their workspace derivation before acceptance, without making raw workspace operation IDs the primary model.
+_Avoid_: Patch preview, raw operation list, commit diff, review UI
+
 **Promotion acceptance**:
 The policy-governed act that makes a promotion proposal part of projection or canonical history. Acceptance records the responsible actor and may require review, tests, or governance depending on policy.
 _Avoid_: Save, auto-publish

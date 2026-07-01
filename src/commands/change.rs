@@ -251,16 +251,24 @@ pub fn proposal_show(change_ref: &str) -> Result<()> {
     let Some(proposal) = change.proposal else {
         bail!("change/{} has no promotion proposal", handle);
     };
-    println!("Promotion proposal for change: {}", change.name);
+    println!("Promotion proposal");
+    println!("Change: {}", change.name);
+    println!("Handle: change/{}", change.handle);
+    println!("Status: {}", change.status);
     println!("Proposed at: {}", proposal.proposed_at.to_rfc3339());
-    println!(
-        "Derived from workspace operations: {:?}",
-        proposal.derived_from
-    );
-    println!("Semantic deltas:");
+    println!();
+    println!("Semantic deltas");
+    println!("Deltas: {}", proposal.semantic_deltas.len());
     for delta in proposal.semantic_deltas {
         println!("  - {}", delta.name);
     }
+    println!();
+    println!("Workspace derivation");
+    println!(
+        "Derived workspace operations: {}",
+        proposal.derived_from.len()
+    );
+    println!("Note: workspace operation IDs are local process history, not projection history.");
     Ok(())
 }
 

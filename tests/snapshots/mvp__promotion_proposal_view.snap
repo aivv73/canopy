@@ -1,0 +1,18 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo,\n&[\"change\", \"proposal\", \"Proposal view\"]))"
+---
+Promotion proposal
+Change: Proposal view
+Handle: change/proposal-view
+Status: proposed
+Proposed at: <timestamp>
+
+Semantic deltas
+Deltas: 2
+  - add README.md
+  - update README.md
+
+Workspace derivation
+Derived workspace operations: 2
+Note: workspace operation IDs are local process history, not projection history.

@@ -264,6 +264,25 @@ fn human_stable_change_list_snapshots_cover_fresh_default_and_all_views() {
 }
 
 #[test]
+fn human_stable_proposal_snapshot_covers_semantic_deltas_and_derivation() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    fs::write(repo.join("README.md"), "v1\n").unwrap();
+    run(&repo, &["change", "start", "Proposal view"]);
+    run(&repo, &["file", "add", "README.md"]);
+    fs::write(repo.join("README.md"), "v2\n").unwrap();
+    run(&repo, &["file", "update", "README.md"]);
+    run(&repo, &["change", "propose", "Proposal view"]);
+
+    insta::assert_snapshot!(
+        "promotion_proposal_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "proposal", "Proposal view"]))
+    );
+}
+
+#[test]
 fn human_stable_doctor_snapshots_cover_healthy_and_active_warning_views() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");
