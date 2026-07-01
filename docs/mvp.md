@@ -65,6 +65,14 @@ Corrective-change metadata is an additive optional field in change records. Exis
 
 Future storage work should define repository-store and replay boundaries before choosing SQLite, `redb`, compact binary encodings, or other persistence technology. Inspectability, migration, and forward compatibility matter more than early encoding density in the MVP.
 
+## Projection and replay invariants
+
+Projection views are computed on demand in the MVP; there is no stored projection cache. A projection view is the audience-specific semantic view used by inspection commands and by concrete renderings such as materialization entries.
+
+Public projection outputs are derived only from public-visible accepted semantic deltas and public-visible relationship metadata. Correction links follow the same relation-visibility rule: public history shows a correction link only when both the corrective change and the corrected target appear in the same public history view.
+
+The MVP keeps one asymmetry for local editing: private materialization renders the current private virtual tree, while private history remains accepted semantic history. `cnp doctor` validates local caches and metadata by calling shared replay/projection helpers rather than owning separate visibility rules.
+
 ## Implementation boundaries
 
 The local MVP is organized as a single CLI crate with file-level modules:

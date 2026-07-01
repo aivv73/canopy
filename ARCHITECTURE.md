@@ -47,6 +47,10 @@ The active change is a repository metadata pointer that decides where new worksp
 - Public materialization is reconstructed by replaying public-visible accepted/published semantic deltas. It must not read current private virtual-tree content for paths whose latest content, deletion, rename, or classification came from an unpublished/private change.
 - The MVP private virtual tree is a cache/source for private materialization; it is not by itself a valid public projection snapshot once mutable file lifecycle operations exist.
 
+Projection views are computed on demand. The projection/replay helpers own visibility decisions for projected history, materialization entries, correction links, and future relation visibility. Command modules format projection output; they should not independently decide which semantic deltas, correction links, or relation endpoints are visible.
+
+The MVP keeps one documented asymmetry: private materialization renders the current private virtual tree, while private history remains accepted semantic history. Public projection outputs must be derived only from public-visible accepted semantic deltas and public-visible relationship metadata.
+
 
 ## Rust MVP module map
 

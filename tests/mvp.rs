@@ -483,6 +483,82 @@ fn public_correction_links_require_target_to_appear_in_same_history_view() {
 }
 
 #[test]
+fn abandoned_corrective_change_is_excluded_from_history_and_replay() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("stable.txt"), "v1\n").unwrap();
+
+    run(&repo, &["change", "start", "Stable"]);
+    run(&repo, &["file", "add", "stable.txt"]);
+    run(&repo, &["change", "propose", "Stable"]);
+    run(&repo, &["change", "accept", "Stable"]);
+    run(&repo, &["change", "finish", "Stable"]);
+
+    fs::write(repo.join("stable.txt"), "bad correction\n").unwrap();
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Stable",
+            "--kind",
+            "supersession",
+            "--name",
+            "Bad correction",
+        ],
+    );
+    run(&repo, &["file", "update", "stable.txt"]);
+    run(&repo, &["change", "abandon", "Bad correction"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["history", "--projection", "private"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bad correction").not());
+    let private = temp.path().join("abandoned-correction-private");
+    run(
+        &repo,
+        &[
+            "projection",
+            "materialize",
+            "private",
+            private.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        fs::read_to_string(private.join("stable.txt")).unwrap(),
+        "v1\n"
+    );
+}
+
+#[test]
+fn doctor_detects_private_virtual_tree_divergence() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+    fs::write(repo.join("README.md"), "hello\n").unwrap();
+    run(&repo, &["change", "start", "Tree"]);
+    run(&repo, &["file", "add", "README.md"]);
+
+    let tree_path = repo.join(".canopy/virtual-tree.json");
+    let diverged = fs::read_to_string(&tree_path)
+        .unwrap()
+        .replace("hello\\n", "changed outside replay\\n");
+    fs::write(tree_path, diverged).unwrap();
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "virtual tree does not match replay of non-abandoned workspace operations",
+        ));
+}
+
+#[test]
 fn corrective_change_validates_target_and_doctor_reports_bad_metadata() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

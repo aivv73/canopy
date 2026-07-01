@@ -36,6 +36,10 @@ _Avoid_: Public object ID, Git SHA
 An identity that names semantic history within a specific projection rather than a storage object in the canonical graph. Projection identities remain tied to their projection's published meaning; disclosure publishes new semantic history instead of silently changing what an existing projection identity means.
 _Avoid_: Global public ID, storage alias
 
+**Projection view**:
+A computed audience-specific semantic view of repository state. A projection view can drive history inspection and concrete renderings such as materialization entries, but it is not stored as canonical state in the MVP.
+_Avoid_: Stored projection cache, checkout snapshot
+
 **Named reference**:
 A user-facing reference to a meaningful entity such as a change, delta name, issue, workspace, or review thread rather than an exposed storage identifier.
 _Avoid_: Raw object ID, SHA-like user API

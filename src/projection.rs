@@ -16,13 +16,40 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub struct ProjectedHistoryChange {
+/// A change as it appears in a computed projection history view.
+pub struct ProjectedChange {
     pub name: String,
     pub handle: String,
     pub status: ChangeStatus,
     pub visible_at: Option<DateTime<Utc>>,
     pub correction: Option<Correction>,
     pub deltas: Vec<SemanticDelta>,
+}
+
+pub struct CorrectionInvariantError {
+    pub corrective_change: String,
+    pub target_change: String,
+    pub kind: CorrectionInvariantErrorKind,
+}
+
+pub enum CorrectionInvariantErrorKind {
+    MissingTarget,
+    NonAcceptedTarget,
+}
+
+impl CorrectionInvariantError {
+    pub fn message(&self) -> String {
+        match self.kind {
+            CorrectionInvariantErrorKind::MissingTarget => format!(
+                "corrective change targets missing change: change/{} corrects change/{}",
+                self.corrective_change, self.target_change
+            ),
+            CorrectionInvariantErrorKind::NonAcceptedTarget => format!(
+                "corrective change targets non-accepted change: change/{} corrects change/{}",
+                self.corrective_change, self.target_change
+            ),
+        }
+    }
 }
 
 /// Replays non-abandoned workspace operations into the private virtual-tree cache.
@@ -87,23 +114,18 @@ pub fn rebuild_private_virtual_tree(store: &LocalStore) -> Result<()> {
 pub fn projected_history(
     store: &LocalStore,
     projection: Projection,
-) -> Result<Vec<ProjectedHistoryChange>> {
+) -> Result<Vec<ProjectedChange>> {
     let mut changes = store.load_changes()?;
     changes.sort_by_key(|c| c.created_at);
     let mut projected = Vec::new();
     for change in changes {
-        if !history_change_visible(&change, projection) {
+        if !change_lifecycle_visible_in_history(&change, projection) {
             continue;
         }
         let Some(proposal) = &change.proposal else {
             continue;
         };
-        let deltas: Vec<_> = proposal
-            .semantic_deltas
-            .iter()
-            .filter(|d| projection == Projection::Private || d.class.public_safe())
-            .cloned()
-            .collect();
+        let deltas = visible_semantic_deltas(&proposal.semantic_deltas, projection);
         if deltas.is_empty() {
             continue;
         }
@@ -114,7 +136,7 @@ pub fn projected_history(
                 .or(change.accepted_at),
             Projection::Private => change.accepted_at,
         };
-        projected.push(ProjectedHistoryChange {
+        projected.push(ProjectedChange {
             name: change.name,
             handle: change.handle,
             status: change.status,
@@ -139,11 +161,53 @@ pub fn projected_history(
     Ok(projected)
 }
 
-fn history_change_visible(change: &Change, projection: Projection) -> bool {
+/// Returns whether a change's lifecycle permits it to appear in projection history.
+pub(crate) fn change_lifecycle_visible_in_history(change: &Change, projection: Projection) -> bool {
     change.status == ChangeStatus::Accepted
         && (projection == Projection::Private
             || change.published_at.is_some()
             || change.disclosed_at.is_some())
+}
+
+/// Filters semantic deltas according to projection visibility rules.
+pub(crate) fn visible_semantic_deltas(
+    deltas: &[SemanticDelta],
+    projection: Projection,
+) -> Vec<SemanticDelta> {
+    deltas
+        .iter()
+        .filter(|d| projection == Projection::Private || d.class.public_safe())
+        .cloned()
+        .collect()
+}
+
+/// Validates correction metadata target existence and accepted lifecycle.
+pub fn validate_correction_invariants(changes: &[Change]) -> Vec<CorrectionInvariantError> {
+    let mut errors = Vec::new();
+    for change in changes {
+        let Some(correction) = &change.correction else {
+            continue;
+        };
+        let Some(target) = changes
+            .iter()
+            .find(|candidate| candidate.handle == correction.target_change)
+        else {
+            errors.push(CorrectionInvariantError {
+                corrective_change: change.handle.clone(),
+                target_change: correction.target_change.clone(),
+                kind: CorrectionInvariantErrorKind::MissingTarget,
+            });
+            continue;
+        };
+        if target.status != ChangeStatus::Accepted {
+            errors.push(CorrectionInvariantError {
+                corrective_change: change.handle.clone(),
+                target_change: correction.target_change.clone(),
+                kind: CorrectionInvariantErrorKind::NonAcceptedTarget,
+            });
+        }
+    }
+    errors
 }
 
 /// Computes already-filtered materialization entries for a projection.
@@ -163,18 +227,13 @@ pub fn materialized_entries(
     let mut changes = store.load_changes()?;
     changes.sort_by_key(|c| c.created_at);
     for change in changes {
-        if change.status != ChangeStatus::Accepted
-            || (change.published_at.is_none() && change.disclosed_at.is_none())
-        {
+        if !change_lifecycle_visible_in_history(&change, Projection::Public) {
             continue;
         }
         let Some(proposal) = change.proposal else {
             continue;
         };
-        for delta in proposal.semantic_deltas {
-            if !delta.class.public_safe() {
-                continue;
-            }
+        for delta in visible_semantic_deltas(&proposal.semantic_deltas, Projection::Public) {
             match delta.kind {
                 OpKind::Add | OpKind::Update => {
                     if let Some(content) = delta.content {
