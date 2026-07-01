@@ -283,6 +283,46 @@ fn human_stable_proposal_snapshot_covers_semantic_deltas_and_derivation() {
 }
 
 #[test]
+fn human_stable_workspace_operation_snapshots_cover_empty_and_mixed_views() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    run(&repo, &["change", "start", "Empty ops"]);
+    insta::assert_snapshot!(
+        "empty_workspace_operation_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "operations", "Empty ops"]))
+    );
+    run(&repo, &["change", "finish", "Empty ops"]);
+
+    fs::write(repo.join("README.md"), "v1\n").unwrap();
+    fs::write(repo.join("config.toml"), "debug = false\n").unwrap();
+    fs::write(repo.join(".env"), "SECRET=abc\n").unwrap();
+    run(&repo, &["change", "start", "Mixed ops"]);
+    run(&repo, &["file", "add", "README.md"]);
+    run(
+        &repo,
+        &["file", "add", "config.toml", "--class", "config-template"],
+    );
+    run(&repo, &["file", "add", ".env", "--class", "secret"]);
+    fs::write(repo.join("README.md"), "v2\n").unwrap();
+    run(&repo, &["file", "update", "README.md"]);
+    run(
+        &repo,
+        &["file", "rename", "config.toml", "config.example.toml"],
+    );
+    run(&repo, &["file", "remove", "README.md"]);
+
+    let operations = cnp_stdout(&repo, &["change", "operations", "Mixed ops"]);
+    assert!(!operations.contains("Operation ID"));
+    assert!(!operations.contains("SECRET=abc"));
+    insta::assert_snapshot!(
+        "mixed_workspace_operation_view",
+        normalize_inspection_output(&operations)
+    );
+}
+
+#[test]
 fn human_stable_doctor_snapshots_cover_healthy_and_active_warning_views() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

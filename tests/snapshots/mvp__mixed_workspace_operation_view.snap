@@ -1,0 +1,27 @@
+---
+source: tests/mvp.rs
+expression: normalize_inspection_output(&operations)
+---
+Workspace operations
+Change: Mixed ops
+Handle: change/mixed-ops
+Status: active
+Operations: 6
+
+  - add README.md
+    Class: public-source
+
+  - add config.toml
+    Class: config-template
+
+  - add .env
+    Class: secret
+
+  - update README.md
+    Class: public-source
+
+  - rename config.toml to config.example.toml
+    Class: config-template
+
+  - remove README.md
+    Class: public-source

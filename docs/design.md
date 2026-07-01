@@ -64,6 +64,7 @@ Current coverage focuses on:
 - initializing a local repository;
 - starting, proposing, accepting, publishing, listing, and inspecting changes;
 - inspecting repository status and promotion proposals;
+- rendering human-stable workspace operation views for empty and mixed operation changes without raw operation IDs or content blobs;
 - finishing active changes and verifying no-active-change command behavior;
 - abandoning unaccepted changes while retaining intent history and replaying private state without abandoned effects;
 - recording explicit `file add`, `file update`, `file remove`, and `file rename` operations with public/config-template/secret classes;

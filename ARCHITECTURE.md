@@ -6,7 +6,7 @@ It is a vertical slice for the first GitHub issues, not the target architecture.
 ## Command surface
 
 - `cnp init [path]` creates `.canopy/` JSON state.
-- `cnp change start|correct|finish|abandon|list|show|current|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
+- `cnp change start|correct|finish|abandon|list|show|current|operations|proposal|propose|accept|publish|disclose` manages and inspects a change-first workflow.
 - `cnp file add|update|remove|rename ...` explicitly records file lifecycle operations against the active change.
 - `cnp status` and `cnp doctor` inspect repository state and validate local JSON consistency.
 - `cnp history --projection public|private` renders accepted history through projection rules.
@@ -26,6 +26,8 @@ Correction metadata explains semantic intent only. Materialization remains drive
 
 Change, history, and doctor inspection output is human-facing CLI explanation, not a machine-stable API or canonical storage dump. Inspection commands may summarize lifecycle, visibility, operation counts, and diagnostic hints, but they should keep semantic Canopy concepts primary and avoid exposing raw storage identities as the user model.
 
+`cnp change operations` is a local workspace operation inspection view, not projection history or a raw storage dump. It may show local operation paths and classes while keeping raw operation IDs and content blobs out of primary user-facing output.
+
 Projection-specific inspection, especially public history, must use the same projection visibility rules as materialization: public output includes only accepted published/disclosed public-safe semantic deltas and must not reveal secret paths, hidden counts, or private-only effects.
 
 ## Active change lifecycle
@@ -36,7 +38,7 @@ The active change is a repository metadata pointer that decides where new worksp
 
 - `.canopy/repo.json`: repository metadata and active change handle.
 - `.canopy/virtual-tree.json`: private full-tree cache for materialization.
-- `.canopy/workspace-ops.json`: durable operation log captured by `cnp file add`.
+- `.canopy/workspace-ops.json`: durable operation log captured by `cnp file add|update|remove|rename`.
 - `.canopy/changes/*.json`: change records, optional correction metadata, promotion proposals, acceptance/publication timestamps.
 
 ## Repository store boundary

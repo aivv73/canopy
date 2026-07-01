@@ -57,6 +57,9 @@ pub enum ChangeCommand {
     Proposal {
         change: String,
     },
+    Operations {
+        change: String,
+    },
     Finish {
         change: String,
     },

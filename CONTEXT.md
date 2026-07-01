@@ -128,6 +128,10 @@ _Avoid_: Garbage collection detail, storage cleanup
 The durable journal of live workspace operations, scratch state, agent exploration, and process provenance. Workspace history is process history, not projection history, and can have different retention rules from promoted project history.
 _Avoid_: Repository history, commit history
 
+**Workspace operation view**:
+A human-facing local inspection view that explains workspace operations recorded for a change without making operation IDs, content blobs, or storage records the primary model.
+_Avoid_: Patch view, operation log dump, raw JSON, projection history
+
 **Canonical history**:
 The promoted project history made from changes, deltas, and published provenance that carry a stronger retention contract than unpromoted workspace history.
 _Avoid_: Full operation log, workspace scratch

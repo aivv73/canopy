@@ -272,6 +272,51 @@ pub fn proposal_show(change_ref: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn operations(change_ref: &str) -> Result<()> {
+    let store = LocalStore::discover()?;
+    let handle = resolve_change_handle(change_ref);
+    let change = store.read_change(&handle)?;
+    let ops = store.read_workspace_ops()?;
+    let change_ops: Vec<_> = ops
+        .ops
+        .iter()
+        .filter(|op| op.change == change.handle)
+        .collect();
+
+    println!("Workspace operations");
+    println!("Change: {}", change.name);
+    println!("Handle: change/{}", change.handle);
+    println!("Status: {}", change.status);
+    println!("Operations: {}", change_ops.len());
+
+    if change_ops.is_empty() {
+        println!();
+        println!("No workspace operations recorded for this change.");
+        println!("Record one with `cnp file add|update|remove|rename ...`.");
+        return Ok(());
+    }
+
+    for op in change_ops {
+        println!();
+        println!("  - {}", workspace_operation_label(op));
+        println!("    Class: {}", op.class);
+    }
+    Ok(())
+}
+
+fn workspace_operation_label(op: &crate::model::WorkspaceOp) -> String {
+    match &op.kind {
+        OpKind::Add => format!("add {}", op.path),
+        OpKind::Update => format!("update {}", op.path),
+        OpKind::Remove => format!("remove {}", op.path),
+        OpKind::Rename => format!(
+            "rename {} to {}",
+            op.path,
+            op.new_path.as_deref().unwrap_or("<missing new path>")
+        ),
+    }
+}
+
 pub fn finish(change_ref: &str) -> Result<()> {
     let store = LocalStore::discover()?;
     let handle = resolve_change_handle(change_ref);
@@ -396,14 +441,5 @@ pub fn publish(change_ref: &str, to: Projection, mode: PublicationMode) -> Resul
 }
 
 fn delta_name(op: &crate::model::WorkspaceOp) -> String {
-    match op.kind {
-        OpKind::Add => format!("add {}", op.path),
-        OpKind::Update => format!("update {}", op.path),
-        OpKind::Remove => format!("remove {}", op.path),
-        OpKind::Rename => format!(
-            "rename {} to {}",
-            op.path,
-            op.new_path.as_deref().unwrap_or("<missing>")
-        ),
-    }
+    workspace_operation_label(op)
 }

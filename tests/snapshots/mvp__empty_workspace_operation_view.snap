@@ -1,0 +1,12 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo,\n&[\"change\", \"operations\", \"Empty ops\"]))"
+---
+Workspace operations
+Change: Empty ops
+Handle: change/empty-ops
+Status: active
+Operations: 0
+
+No workspace operations recorded for this change.
+Record one with `cnp file add|update|remove|rename ...`.
