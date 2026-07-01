@@ -21,7 +21,7 @@ local virtual tree
 - `cnp change correct <target-change> --kind reversal|supersession --name <name>` creates an active corrective change targeting an accepted change without auto-generating file operations.
 - `cnp change finish <change>` clears the active editing association for the current change without deleting the change or changing projection history.
 - `cnp change abandon <change>` marks an unaccepted change as abandoned intent history, hides it from default change lists, and removes its effects from current private materialization.
-- `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `--all` includes abandoned changes. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections.
+- `cnp change list [--all]|show|current|proposal` inspect changes and promotion proposals by named references. `list` presents a human change list view with active editing, lifecycle, role, and public visibility summary. `--all` includes abandoned changes in a separate section. `show` presents a human inspection view with identity, lifecycle, active-editing, operation-summary, visibility, and proposal sections.
 - `cnp file add <path> [--class public-source|config-template|secret]` records an explicit workspace operation and updates the private virtual tree cache.
 - `cnp file update <path> [--class public-source|config-template|secret]` records an explicit update operation.
 - `cnp file remove <path>` records an explicit removal operation.
@@ -105,7 +105,9 @@ These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; t
 
 The MVP inspection commands are human-facing explanations rather than machine-stable APIs. `cnp change show` summarizes the change intent, lifecycle, active editing association, workspace operation counts, visibility, and promotion proposal. It keeps detailed workspace operation listings out of the default view while still surfacing secret-class operation counts for local awareness.
 
-The first human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change show`, and `cnp history --projection public|private`. Human-stable output means section structure, labels, and important explanatory phrases are stable enough for users, docs, and tests; it does not make the text a machine-readable parser contract. `cnp change list` and `cnp change proposal` are intentionally outside this first stabilization batch. Future machine-readable output should be introduced explicitly, such as with a future `--format json`.
+The human-stable output contract covers `cnp status`, `cnp doctor`, `cnp change list`, `cnp change show`, and `cnp history --projection public|private`. Human-stable output means section structure, labels, and important explanatory phrases are stable enough for users, docs, and tests; it does not make the text a machine-readable parser contract. `cnp change proposal` remains outside this stabilization batch. Future machine-readable output should be introduced explicitly, such as with a future `--format json`.
+
+`cnp change list` is a change list view: a local inspection index of change intent, not projection history, raw storage inventory, or a replacement for `cnp change show`. It groups the active editing change ahead of other changes, shows lifecycle status, primary/corrective role, and public visibility summary, and hides abandoned changes by default with a hint to run `cnp change list --all`. Correction targets, lifecycle timestamps, promotion proposal details, and workspace operation summaries belong in `cnp change show` or `cnp change proposal`.
 
 `cnp status` is a lightweight status view, not a consistency audit. It summarizes local shape and always points users to `cnp doctor` for replay and storage consistency checks.
 

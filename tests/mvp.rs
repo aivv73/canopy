@@ -213,6 +213,57 @@ fn human_stable_status_snapshots_cover_fresh_and_rich_views() {
 }
 
 #[test]
+fn human_stable_change_list_snapshots_cover_fresh_default_and_all_views() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    insta::assert_snapshot!(
+        "fresh_change_list_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "list"]))
+    );
+
+    fs::write(repo.join("base.txt"), "base\n").unwrap();
+    fs::write(repo.join("fix.txt"), "fix\n").unwrap();
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+
+    run(&repo, &["change", "start", "Base"]);
+    run(&repo, &["file", "add", "base.txt"]);
+    run(&repo, &["change", "propose", "Base"]);
+    run(&repo, &["change", "accept", "Base"]);
+    run(&repo, &["change", "publish", "Base", "--to", "public"]);
+    run(&repo, &["change", "finish", "Base"]);
+
+    run(&repo, &["change", "start", "Bad"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+    run(&repo, &["change", "abandon", "Bad"]);
+
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Base",
+            "--kind",
+            "supersession",
+            "--name",
+            "Fix base",
+        ],
+    );
+    run(&repo, &["file", "add", "fix.txt"]);
+    run(&repo, &["change", "propose", "Fix base"]);
+
+    insta::assert_snapshot!(
+        "default_change_list_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "list"]))
+    );
+    insta::assert_snapshot!(
+        "all_change_list_view",
+        normalize_inspection_output(&cnp_stdout(&repo, &["change", "list", "--all"]))
+    );
+}
+
+#[test]
 fn human_stable_doctor_snapshots_cover_healthy_and_active_warning_views() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

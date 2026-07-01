@@ -1,0 +1,26 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo, &[\"change\", \"list\", \"--all\"]))"
+---
+Changes
+
+Active editing
+  change/fix-base
+    Name: Fix base
+    Status: proposed
+    Role: corrective:supersession
+    Public visibility: not visible
+
+Other changes
+  change/base
+    Name: Base
+    Status: accepted
+    Role: primary
+    Public visibility: visible
+
+Abandoned
+  change/bad
+    Name: Bad
+    Status: abandoned
+    Role: primary
+    Public visibility: not visible

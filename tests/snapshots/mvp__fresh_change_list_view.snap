@@ -1,0 +1,7 @@
+---
+source: tests/mvp.rs
+expression: "normalize_inspection_output(&cnp_stdout(&repo, &[\"change\", \"list\"]))"
+---
+Changes
+  No changes yet.
+  Start one with `cnp change start <name>`.

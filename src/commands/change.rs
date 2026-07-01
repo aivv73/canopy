@@ -71,18 +71,82 @@ pub fn correct(target_ref: &str, kind: CorrectionKind, name: &str) -> Result<()>
 
 pub fn list(all: bool) -> Result<()> {
     let store = LocalStore::discover()?;
+    let meta = store.read_meta()?;
     let mut changes = store.load_changes()?;
     changes.sort_by_key(|c| c.created_at);
-    for change in changes {
-        if !all && change.status == ChangeStatus::Abandoned {
-            continue;
+
+    println!("Changes");
+    if changes.is_empty() {
+        println!("  No changes yet.");
+        println!("  Start one with `cnp change start <name>`.");
+        return Ok(());
+    }
+
+    let active_handle = meta.active_change.as_deref();
+    if let Some(active) = active_handle.and_then(|handle| {
+        changes
+            .iter()
+            .find(|change| change.handle == handle && change.status != ChangeStatus::Abandoned)
+    }) {
+        println!();
+        println!("Active editing");
+        print_change_list_entry(active);
+    }
+
+    let other_changes: Vec<_> = changes
+        .iter()
+        .filter(|change| change.status != ChangeStatus::Abandoned)
+        .filter(|change| Some(change.handle.as_str()) != active_handle)
+        .collect();
+    if !other_changes.is_empty() {
+        println!();
+        println!("Other changes");
+        for change in other_changes {
+            print_change_list_entry(change);
         }
+    }
+
+    let abandoned: Vec<_> = changes
+        .iter()
+        .filter(|change| change.status == ChangeStatus::Abandoned)
+        .collect();
+    if all && !abandoned.is_empty() {
+        println!();
+        println!("Abandoned");
+        for change in abandoned {
+            print_change_list_entry(change);
+        }
+    } else if !all && !abandoned.is_empty() {
+        println!();
+        println!("Hidden");
         println!(
-            "{}\tchange/{}\t{}",
-            change.name, change.handle, change.status
+            "  Abandoned changes: {} hidden; run `cnp change list --all`",
+            abandoned.len()
         );
     }
     Ok(())
+}
+
+fn print_change_list_entry(change: &Change) {
+    println!("  change/{}", change.handle);
+    println!("    Name: {}", change.name);
+    println!("    Status: {}", change.status);
+    println!("    Role: {}", change_list_role(change));
+    println!(
+        "    Public visibility: {}",
+        if change.published_at.is_some() || change.disclosed_at.is_some() {
+            "visible"
+        } else {
+            "not visible"
+        }
+    );
+}
+
+fn change_list_role(change: &Change) -> String {
+    match &change.correction {
+        Some(correction) => format!("corrective:{}", correction.kind),
+        None => "primary".to_string(),
+    }
 }
 
 pub fn current() -> Result<()> {

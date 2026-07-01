@@ -476,6 +476,10 @@ _Avoid_: JSON API, parser contract, best-effort text
 A human-facing local inspection view that summarizes current repository state, active editing association, change lifecycle counts, workspace operation volume, and lightweight next-action hints. A status view is not a consistency audit and does not replace `doctor`.
 _Avoid_: Doctor report, full audit, machine API
 
+**Change list view**:
+A human-facing local inspection view that indexes changes by lifecycle, active editing association, correction role, and public visibility summary without becoming projection history, a raw storage inventory, or a machine-readable API.
+_Avoid_: Commit log, branch list, storage record list, projection history
+
 **Edit session**:
 A user-friendly workflow that finds or creates a change, joins or creates an attached workspace, materializes it locally, and captures edits as workspace operations.
 _Avoid_: Checkout, branch switch
