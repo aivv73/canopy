@@ -54,7 +54,7 @@ cnp change disclose "SEC-2026-01" --to public
 
 This repository now contains a local-only MVP `cnp` CLI prototype plus design docs. The MVP demonstrates projection filtering, but it does **not** encrypt secrets: `secret` files are hidden from public projections while still stored in plaintext under `.canopy/`.
 
-The Rust MVP is a single CLI crate split into responsibility modules under `src/`: command-line syntax, persisted MVP model types, local `.canopy/` JSON storage via `LocalStore`, virtual path validation, projection replay, marker-protected materialization, and command orchestration. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the module map and boundary rules.
+The Rust MVP is a single CLI crate split into responsibility modules under `src/`: command-line syntax, persisted MVP model types, local `.canopy/` JSON storage via `LocalStore`, virtual path validation, store-free promotion derivation, projection replay, marker-protected materialization, and command orchestration. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the module map and boundary rules.
 
 ## License
 

@@ -30,6 +30,8 @@ Change, history, and doctor inspection output is human-facing CLI explanation, n
 
 `cnp change preview` is a non-mutating promotion preview view. It derives the same semantic delta names that `cnp change propose` would store, but it must not create proposal data, change lifecycle state, or imply projection-history visibility.
 
+The `promotion` module owns preview/proposal derivation from workspace operations to semantic deltas. Command modules remain CLI adapters: they resolve named references, read and write through `LocalStore`, and render human output. Promotion is store-free and does not introduce a repository store trait or backend adapter seam; promotion acceptance, correction workflow, publish/disclose, projection filtering, materialization, and file operation recording remain outside this first promotion module scope.
+
 Projection-specific inspection, especially public history, must use the same projection visibility rules as materialization: public output includes only accepted published/disclosed public-safe semantic deltas and must not reveal secret paths, hidden counts, or private-only effects.
 
 ## Active change lifecycle
@@ -77,6 +79,7 @@ The Rust MVP is split by responsibility rather than by storage shape:
 - `model` owns serializable MVP domain types and small lifecycle predicates; command modules still enforce workflow transitions.
 - `storage` owns the `LocalStore` JSON persistence boundary, repository discovery, storage format checks, and `.canopy/` file access.
 - `paths` owns virtual path normalization and validation.
+- `promotion` owns promotion preview/proposal derivation from workspace operations to semantic deltas; it does not read or write repository storage and does not render CLI output.
 - `projection` owns public/private projection computation, including public semantic-delta replay and private virtual-tree replay that excludes abandoned effects.
 - `materialize` owns filesystem materialization safety and writes already-computed entries; it does not decide visibility.
 - `commands` owns command orchestration, split into focused change, file, history, status, and doctor command modules.
@@ -104,6 +107,7 @@ src/
   model.rs                # persisted MVP data types
   storage.rs              # LocalStore JSON persistence boundary
   paths.rs                # virtual path normalization and validation
+  promotion.rs            # promotion preview/proposal derivation
   projection.rs           # projection replay and materialization-entry computation
   materialize.rs          # marker-protected filesystem writes
   commands/

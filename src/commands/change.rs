@@ -1,9 +1,9 @@
 use crate::{
     model::{
-        Change, ChangeStatus, Correction, CorrectionKind, OpKind, Projection, PromotionProposal,
-        PublicationMode, SemanticDelta,
+        Change, ChangeStatus, Correction, CorrectionKind, OpKind, Projection, PublicationMode,
     },
     projection::rebuild_private_virtual_tree,
+    promotion,
     storage::{resolve_change_handle, slug, LocalStore},
 };
 use anyhow::{bail, Result};
@@ -298,7 +298,7 @@ pub fn operations(change_ref: &str) -> Result<()> {
 
     for op in change_ops {
         println!();
-        println!("  - {}", workspace_operation_label(op));
+        println!("  - {}", promotion::semantic_delta_name(op));
         println!("    Class: {}", op.class);
     }
     Ok(())
@@ -308,13 +308,9 @@ pub fn preview(change_ref: &str) -> Result<()> {
     let store = LocalStore::discover()?;
     let handle = resolve_change_handle(change_ref);
     let change = store.read_change(&handle)?;
-    if change.status == ChangeStatus::Abandoned {
-        bail!(
-            "change/{} is abandoned and cannot be previewed or proposed",
-            handle
-        );
-    }
-    let preview = derive_promotion_preview(&store, &handle)?;
+    ensure_loaded_change_matches_ref(&handle, &change)?;
+    let ops = store.read_workspace_ops()?;
+    let preview = promotion::preview(&change, &ops.ops)?;
 
     println!("Promotion preview");
     println!("Change: {}", change.name);
@@ -335,23 +331,21 @@ pub fn preview(change_ref: &str) -> Result<()> {
     println!("Workspace derivation");
     println!(
         "Derived workspace operations: {}",
-        preview.derived_from.len()
+        preview.derived_workspace_operations
     );
     println!("Note: preview does not create proposal data or change lifecycle state.");
     Ok(())
 }
 
-fn workspace_operation_label(op: &crate::model::WorkspaceOp) -> String {
-    match &op.kind {
-        OpKind::Add => format!("add {}", op.path),
-        OpKind::Update => format!("update {}", op.path),
-        OpKind::Remove => format!("remove {}", op.path),
-        OpKind::Rename => format!(
-            "rename {} to {}",
-            op.path,
-            op.new_path.as_deref().unwrap_or("<missing new path>")
-        ),
+fn ensure_loaded_change_matches_ref(requested_handle: &str, change: &Change) -> Result<()> {
+    if change.handle != requested_handle {
+        bail!(
+            "change record handle mismatch: requested change/{} loaded change/{}",
+            requested_handle,
+            change.handle
+        );
     }
+    Ok(())
 }
 
 pub fn finish(change_ref: &str) -> Result<()> {
@@ -394,19 +388,9 @@ pub fn propose(change_ref: &str) -> Result<()> {
     let store = LocalStore::discover()?;
     let handle = resolve_change_handle(change_ref);
     let mut change = store.read_change(&handle)?;
-    if change.status == ChangeStatus::Abandoned {
-        bail!("change/{} is abandoned and cannot be proposed", handle);
-    }
+    ensure_loaded_change_matches_ref(&handle, &change)?;
     let ops = store.read_workspace_ops()?;
-    let change_ops: Vec<_> = ops.ops.iter().filter(|op| op.change == handle).collect();
-    if change_ops.is_empty() {
-        bail!("no workspace operations recorded for change/{}", handle);
-    }
-    let proposal = PromotionProposal {
-        semantic_deltas: semantic_deltas_from_workspace_ops(&change_ops),
-        derived_from: change_ops.iter().map(|op| op.id).collect(),
-        proposed_at: Utc::now(),
-    };
+    let proposal = promotion::create_proposal(&change, &ops.ops, Utc::now())?;
     println!("Promotion proposal created for change: {}", change.name);
     for d in &proposal.semantic_deltas {
         println!("- {}", d.name);
@@ -458,37 +442,4 @@ pub fn publish(change_ref: &str, to: Projection, mode: PublicationMode) -> Resul
     }
     store.write_change_visibility(&change)?;
     Ok(())
-}
-
-fn delta_name(op: &crate::model::WorkspaceOp) -> String {
-    workspace_operation_label(op)
-}
-
-struct PromotionPreview {
-    semantic_delta_names: Vec<String>,
-    derived_from: Vec<u64>,
-}
-
-fn derive_promotion_preview(store: &LocalStore, handle: &str) -> Result<PromotionPreview> {
-    let ops = store.read_workspace_ops()?;
-    let change_ops: Vec<_> = ops.ops.iter().filter(|op| op.change == handle).collect();
-    let semantic_delta_names = change_ops.iter().map(|op| delta_name(op)).collect();
-    let derived_from = change_ops.iter().map(|op| op.id).collect();
-    Ok(PromotionPreview {
-        semantic_delta_names,
-        derived_from,
-    })
-}
-
-fn semantic_deltas_from_workspace_ops(ops: &[&crate::model::WorkspaceOp]) -> Vec<SemanticDelta> {
-    ops.iter()
-        .map(|op| SemanticDelta {
-            name: delta_name(op),
-            kind: op.kind.clone(),
-            path: op.path.clone(),
-            new_path: op.new_path.clone(),
-            content: op.content.clone(),
-            class: op.class.clone(),
-        })
-        .collect()
 }

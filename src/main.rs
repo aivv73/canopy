@@ -15,6 +15,7 @@ mod materialize;
 mod model;
 mod paths;
 mod projection;
+mod promotion;
 mod storage;
 
 use anyhow::Result;

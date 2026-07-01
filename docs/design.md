@@ -57,7 +57,7 @@ CI jobs and agents are treated as compromised scoped actors by default. They rec
 
 The first Rust implementation is tested through high-level CLI integration tests in `tests/mvp.rs`. Tests intentionally exercise the public command seam rather than private helper functions so the MVP can be refactored without changing user-facing behavior.
 
-The current Rust MVP is a single local-only CLI crate split into responsibility modules. `cli` owns Clap syntax, `model` owns persisted MVP data shapes, `storage::LocalStore` owns `.canopy/` JSON persistence, `paths` owns virtual path validation, `projection` owns public/private replay and visibility computation, `materialize` owns marker-protected filesystem writes, and `commands` owns workflow orchestration and user-facing output. The split is an implementation boundary for the MVP, not the final engine boundary for replicated workspaces, capabilities, remotes, cryptographic storage, or policy enforcement.
+The current Rust MVP is a single local-only CLI crate split into responsibility modules. `cli` owns Clap syntax, `model` owns persisted MVP data shapes, `storage::LocalStore` owns `.canopy/` JSON persistence, `paths` owns virtual path validation, `promotion` owns store-free preview/proposal derivation from workspace operations to semantic deltas, `projection` owns public/private replay and visibility computation, `materialize` owns marker-protected filesystem writes, and `commands` owns workflow orchestration and user-facing output. The split is an implementation boundary for the MVP, not the final engine boundary for replicated workspaces, capabilities, remotes, cryptographic storage, or policy enforcement.
 
 Current coverage focuses on:
 
@@ -65,6 +65,7 @@ Current coverage focuses on:
 - starting, proposing, accepting, publishing, listing, and inspecting changes;
 - inspecting repository status and promotion proposals;
 - previewing promotion proposal deltas without creating proposal data or changing lifecycle state;
+- testing promotion derivation directly through its store-free module seam;
 - rendering human-stable workspace operation views for empty and mixed operation changes without raw operation IDs or content blobs;
 - finishing active changes and verifying no-active-change command behavior;
 - abandoning unaccepted changes while retaining intent history and replaying private state without abandoned effects;

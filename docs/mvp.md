@@ -92,6 +92,7 @@ The local MVP is organized as a single CLI crate with file-level modules:
 - `model` defines persisted MVP data types.
 - `storage` owns `LocalStore` and `.canopy/` JSON persistence.
 - `paths` validates virtual paths.
+- `promotion` derives promotion previews and proposals from workspace operations without reading/writing repository storage or rendering CLI output.
 - `projection` computes public/private visibility and replay results.
 - `materialize` writes already-computed projection entries into marker-protected directories.
 - `commands` orchestrates user workflows and prints command output.
