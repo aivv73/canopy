@@ -624,6 +624,73 @@ fn corrective_change_validates_target_and_doctor_reports_bad_metadata() {
 }
 
 #[test]
+fn rich_status_summarizes_counts_workspace_and_hints() {
+    let temp = tempdir().unwrap();
+    let repo = temp.path().join("demo");
+    run(temp.path(), &["init", repo.to_str().unwrap()]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active change"))
+        .stdout(predicate::str::contains("Active change: none"))
+        .stdout(predicate::str::contains("Active: 0"))
+        .stdout(predicate::str::contains("Virtual files: 0"))
+        .stdout(predicate::str::contains("Workspace operations: 0"))
+        .stdout(predicate::str::contains("For consistency checks"));
+
+    fs::write(repo.join("base.txt"), "base\n").unwrap();
+    fs::write(repo.join("fix.txt"), "fix\n").unwrap();
+    fs::write(repo.join("bad.txt"), "bad\n").unwrap();
+
+    run(&repo, &["change", "start", "Base"]);
+    run(&repo, &["file", "add", "base.txt"]);
+    run(&repo, &["change", "propose", "Base"]);
+    run(&repo, &["change", "accept", "Base"]);
+    run(&repo, &["change", "publish", "Base", "--to", "public"]);
+    run(&repo, &["change", "finish", "Base"]);
+
+    run(&repo, &["change", "start", "Bad"]);
+    run(&repo, &["file", "add", "bad.txt"]);
+    run(&repo, &["change", "abandon", "Bad"]);
+
+    run(
+        &repo,
+        &[
+            "change",
+            "correct",
+            "Base",
+            "--kind",
+            "supersession",
+            "--name",
+            "Fix base",
+        ],
+    );
+    run(&repo, &["file", "add", "fix.txt"]);
+    run(&repo, &["change", "propose", "Fix base"]);
+    run(&repo, &["change", "accept", "Fix base"]);
+
+    Command::new(env!("CARGO_BIN_EXE_cnp"))
+        .current_dir(&repo)
+        .args(["status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Name: Fix base"))
+        .stdout(predicate::str::contains("Handle: change/fix-base"))
+        .stdout(predicate::str::contains("Status: accepted"))
+        .stdout(predicate::str::contains("Accepted: 2"))
+        .stdout(predicate::str::contains(
+            "Abandoned: 1 hidden from default change list",
+        ))
+        .stdout(predicate::str::contains("Corrective: 1"))
+        .stdout(predicate::str::contains("Virtual files: 2"))
+        .stdout(predicate::str::contains("Workspace operations: 3"))
+        .stdout(predicate::str::contains("accepted change is still active"));
+}
+
+#[test]
 fn update_remove_and_rename_flow_through_projections() {
     let temp = tempdir().unwrap();
     let repo = temp.path().join("demo");

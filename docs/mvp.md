@@ -15,7 +15,7 @@ local virtual tree
 ## What the MVP supports
 
 - `cnp init [path]` creates a local `.canopy/` repository.
-- `cnp status` shows repository status, storage format, the active change, and captured workspace operation count.
+- `cnp status` shows a local status view with repository format, active editing association, change lifecycle counts, corrective-change count, private workspace size, workspace operation volume, and lightweight next-action hints.
 - `cnp doctor` validates local JSON state and reports grouped errors, warnings, and selected next-action hints without repairing it.
 - `cnp change start <name>` creates an active change.
 - `cnp change correct <target-change> --kind reversal|supersession --name <name>` creates an active corrective change targeting an accepted change without auto-generating file operations.
@@ -104,6 +104,8 @@ These boundaries preserve the command-line behavior covered by `tests/mvp.rs`; t
 ## Inspection views
 
 The MVP inspection commands are human-facing explanations rather than machine-stable APIs. `cnp change show` summarizes the change intent, lifecycle, active editing association, workspace operation counts, visibility, and promotion proposal. It keeps detailed workspace operation listings out of the default view while still surfacing secret-class operation counts for local awareness.
+
+`cnp status` is a lightweight status view, not a consistency audit. It summarizes local shape and always points users to `cnp doctor` for replay and storage consistency checks.
 
 `cnp history --projection public|private` remains projection semantic history: abandoned changes and raw workspace operations are not shown. Public history continues to omit secret semantic deltas and secret paths.
 

@@ -468,6 +468,10 @@ _Avoid_: Commit log, raw operation log
 A human-facing CLI view that explains repository state, change intent, projection history, or diagnostics without making raw storage identities the primary model. Inspection views are not canonical history and may summarize or omit details according to projection and safety rules.
 _Avoid_: Raw database dump, object inspection
 
+**Status view**:
+A human-facing local inspection view that summarizes current repository state, active editing association, change lifecycle counts, workspace operation volume, and lightweight next-action hints. A status view is not a consistency audit and does not replace `doctor`.
+_Avoid_: Doctor report, full audit, machine API
+
 **Edit session**:
 A user-friendly workflow that finds or creates a change, joins or creates an attached workspace, materializes it locally, and captures edits as workspace operations.
 _Avoid_: Checkout, branch switch

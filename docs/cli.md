@@ -104,6 +104,8 @@ cnp conflict resolve conflict/oauth-issuer-rename
 
 Status, CI checks, logs, artifacts, and conflict details are all policy-filtered.
 
+`cnp status` is a lightweight local status view: it summarizes repository format, active editing association, change lifecycle counts, workspace operation volume, virtual file count, and simple next-action hints. It does not run a full consistency audit.
+
 `cnp doctor` is a diagnostic inspection view: it groups errors and warnings, offers selected next-action hints, and does not silently repair repository state.
 
 ## Policy, governance, and capabilities
