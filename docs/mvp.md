@@ -67,6 +67,12 @@ Corrective-change metadata is an additive optional field in change records. Exis
 
 Future storage work should define repository-store and replay boundaries before choosing SQLite, `redb`, compact binary encodings, or other persistence technology. Inspectability, migration, and forward compatibility matter more than early encoding density in the MVP.
 
+The repository store is the persistence contract; `LocalStore` is the current JSON-backed local implementation. The store owns repository records and write-group invariants, while projection/replay owns visibility and materialization owns filesystem writes. Workspace operations are semantically append-only even though the JSON MVP rewrites one file. The private virtual tree is a replay-validated cache, and `doctor` checks it against workspace operation replay.
+
+Named write groups include repository initialization, starting changes, starting corrective changes, recording file operations, proposing, accepting, publishing/disclosing, finishing, abandoning, and rebuilding the private virtual-tree cache. Stronger atomicity for these groups is future backend work, not a guarantee of the JSON MVP.
+
+See [`storage.md`](./storage.md) for the repository store boundary, write-group map, virtual-tree cache semantics, and future backend evaluation criteria.
+
 ## Projection and replay invariants
 
 Projection views are computed on demand in the MVP; there is no stored projection cache. A projection view is the audience-specific semantic view used by inspection commands and by concrete renderings such as materialization entries.

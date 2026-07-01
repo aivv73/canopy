@@ -1,10 +1,12 @@
 //! Local JSON persistence boundary for the MVP `.canopy/` directory.
 //!
-//! `LocalStore` owns repository discovery, storage-format validation, and JSON
-//! file access. It preserves the MVP's current per-file write-then-rename
-//! behavior but does not provide cross-file transactions.
+//! `LocalStore` is the current JSON-backed implementation of Canopy's
+//! repository store boundary. It owns repository discovery, storage-format
+//! validation, record persistence, workspace-operation append semantics, and
+//! named write-group helpers. It preserves the MVP's current per-file
+//! write-then-rename behavior but does not provide cross-file transactions.
 
-use crate::model::{Change, RepoMeta, VirtualTree, WorkspaceOps};
+use crate::model::{Change, RepoMeta, VirtualTree, WorkspaceOp, WorkspaceOps};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -21,6 +23,8 @@ pub struct LocalStore {
 }
 
 impl LocalStore {
+    // Repository discovery and state paths.
+
     pub fn new(root: PathBuf) -> Self {
         Self { root }
     }
@@ -48,6 +52,8 @@ impl LocalStore {
     pub fn workspace_ops_path(&self) -> PathBuf {
         self.root.join("workspace-ops.json")
     }
+
+    // Primitive record reads/writes.
 
     pub fn read_meta(&self) -> Result<RepoMeta> {
         let meta: RepoMeta = read_json(&self.repo_path())?;
@@ -98,7 +104,66 @@ impl LocalStore {
             .ok_or_else(|| anyhow::anyhow!("no active change; run `cnp change start <name>` first"))
     }
 
-    pub fn append_workspace_op(&self, mut op: crate::model::WorkspaceOp) -> Result<()> {
+    // Write-group helpers. These are not transactional in the JSON MVP, but
+    // they mark the boundaries future repository stores should make atomic.
+
+    pub fn create_change_and_activate(&self, change: &Change) -> Result<()> {
+        self.write_change(change)?;
+        let mut meta = self.read_meta()?;
+        meta.active_change = Some(change.handle.clone());
+        self.write_meta(&meta)
+    }
+
+    pub fn finish_active_change(&self, handle: &str) -> Result<()> {
+        let mut meta = self.read_meta()?;
+        let Some(active) = &meta.active_change else {
+            bail!("no active change; run `cnp change start <name>` first");
+        };
+        if active != handle {
+            bail!(
+                "cannot finish change/{} because change/{} is active",
+                handle,
+                active
+            );
+        }
+        meta.active_change = None;
+        self.write_meta(&meta)
+    }
+
+    pub fn mark_abandoned_and_clear_active(&self, change: &Change) -> Result<RepoMeta> {
+        self.write_change(change)?;
+        let mut meta = self.read_meta()?;
+        if meta.active_change.as_deref() == Some(&change.handle) {
+            meta.active_change = None;
+            self.write_meta(&meta)?;
+        }
+        Ok(meta)
+    }
+
+    pub fn write_change_proposal(&self, change: &Change) -> Result<()> {
+        self.write_change(change)
+    }
+
+    pub fn write_change_acceptance(&self, change: &Change) -> Result<()> {
+        self.write_change(change)
+    }
+
+    pub fn write_change_visibility(&self, change: &Change) -> Result<()> {
+        self.write_change(change)
+    }
+
+    pub fn write_private_virtual_tree_cache(&self, tree: &VirtualTree) -> Result<()> {
+        self.write_virtual_tree(tree)
+    }
+
+    pub fn record_file_operation(&self, tree: &VirtualTree, op: WorkspaceOp) -> Result<()> {
+        self.write_virtual_tree(tree)?;
+        self.append_workspace_op(op)
+    }
+
+    // Workspace operation append primitive used by write-group helpers.
+
+    pub fn append_workspace_op(&self, mut op: WorkspaceOp) -> Result<()> {
         let mut ops = self.read_workspace_ops()?;
         op.id = ops.ops.iter().map(|op| op.id).max().unwrap_or(0) + 1;
         ops.ops.push(op);

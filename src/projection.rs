@@ -107,7 +107,7 @@ pub fn private_tree_from_workspace(store: &LocalStore) -> Result<VirtualTree> {
 
 pub fn rebuild_private_virtual_tree(store: &LocalStore) -> Result<()> {
     let tree = private_tree_from_workspace(store)?;
-    store.write_virtual_tree(&tree)
+    store.write_private_virtual_tree_cache(&tree)
 }
 
 /// Computes accepted semantic history visible through the requested projection.

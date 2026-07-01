@@ -26,10 +26,7 @@ pub fn start(name: &str) -> Result<()> {
         disclosed_at: None,
         correction: None,
     };
-    store.write_change(&change)?;
-    let mut meta = store.read_meta()?;
-    meta.active_change = Some(handle.clone());
-    store.write_meta(&meta)?;
+    store.create_change_and_activate(&change)?;
     println!("Started change: {}", name);
     println!("Handle: change/{}", handle);
     Ok(())
@@ -63,10 +60,7 @@ pub fn correct(target_ref: &str, kind: CorrectionKind, name: &str) -> Result<()>
             kind,
         }),
     };
-    store.write_change(&change)?;
-    let mut meta = store.read_meta()?;
-    meta.active_change = Some(handle.clone());
-    store.write_meta(&meta)?;
+    store.create_change_and_activate(&change)?;
     println!("Started corrective change: {}", name);
     println!("Handle: change/{}", handle);
     println!("Correction kind: {}", kind);
@@ -209,20 +203,8 @@ pub fn proposal_show(change_ref: &str) -> Result<()> {
 pub fn finish(change_ref: &str) -> Result<()> {
     let store = LocalStore::discover()?;
     let handle = resolve_change_handle(change_ref);
-    let mut meta = store.read_meta()?;
-    let Some(active) = &meta.active_change else {
-        bail!("no active change; run `cnp change start <name>` first");
-    };
-    if active != &handle {
-        bail!(
-            "cannot finish change/{} because change/{} is active",
-            handle,
-            active
-        );
-    }
     let change = store.read_change(&handle)?;
-    meta.active_change = None;
-    store.write_meta(&meta)?;
+    store.finish_active_change(&handle)?;
     println!("Finished active change: {}", change.name);
     println!("Handle: change/{}", change.handle);
     println!("Active change: none");
@@ -239,13 +221,8 @@ pub fn abandon(change_ref: &str) -> Result<()> {
     let was_abandoned = change.status == ChangeStatus::Abandoned;
     if !was_abandoned {
         change.status = ChangeStatus::Abandoned;
-        store.write_change(&change)?;
     }
-    let mut meta = store.read_meta()?;
-    if meta.active_change.as_deref() == Some(&handle) {
-        meta.active_change = None;
-        store.write_meta(&meta)?;
-    }
+    let meta = store.mark_abandoned_and_clear_active(&change)?;
     rebuild_private_virtual_tree(&store)?;
     if was_abandoned {
         println!("Change already abandoned: {}", change.name);
@@ -299,7 +276,7 @@ pub fn propose(change_ref: &str) -> Result<()> {
     }
     change.proposal = Some(proposal);
     change.status = ChangeStatus::Proposed;
-    store.write_change(&change)?;
+    store.write_change_proposal(&change)?;
     Ok(())
 }
 
@@ -315,7 +292,7 @@ pub fn accept(change_ref: &str) -> Result<()> {
     }
     change.status = ChangeStatus::Accepted;
     change.accepted_at = Some(Utc::now());
-    store.write_change(&change)?;
+    store.write_change_acceptance(&change)?;
     println!("Accepted change: {}", change.name);
     println!("Handle: change/{}", handle);
     Ok(())
@@ -342,7 +319,7 @@ pub fn publish(change_ref: &str, to: Projection, mode: PublicationMode) -> Resul
             println!("Published change to public: {}", change.name);
         }
     }
-    store.write_change(&change)?;
+    store.write_change_visibility(&change)?;
     Ok(())
 }
 

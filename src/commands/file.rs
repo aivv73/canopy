@@ -24,17 +24,19 @@ pub fn add(args: FileAdd) -> Result<()> {
             updated_at: now,
         },
     );
-    store.write_virtual_tree(&tree)?;
-    store.append_workspace_op(WorkspaceOp {
-        id: 0,
-        change,
-        kind: OpKind::Add,
-        path: rel.clone(),
-        new_path: None,
-        content: Some(content),
-        class: args.class.clone(),
-        created_at: now,
-    })?;
+    store.record_file_operation(
+        &tree,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Add,
+            path: rel.clone(),
+            new_path: None,
+            content: Some(content),
+            class: args.class.clone(),
+            created_at: now,
+        },
+    )?;
     println!("Added file: {}", rel);
     println!("Class: {}", args.class);
     warn_secret(&args.class);
@@ -68,17 +70,19 @@ pub fn update(args: FileUpdate) -> Result<()> {
             updated_at: now,
         },
     );
-    store.write_virtual_tree(&tree)?;
-    store.append_workspace_op(WorkspaceOp {
-        id: 0,
-        change,
-        kind: OpKind::Update,
-        path: rel.clone(),
-        new_path: None,
-        content: Some(content),
-        class: class.clone(),
-        created_at: now,
-    })?;
+    store.record_file_operation(
+        &tree,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Update,
+            path: rel.clone(),
+            new_path: None,
+            content: Some(content),
+            class: class.clone(),
+            created_at: now,
+        },
+    )?;
     println!("Updated file: {}", rel);
     println!("Class: {}", class);
     warn_secret(&class);
@@ -95,17 +99,19 @@ pub fn remove(args: FileRemove) -> Result<()> {
         .files
         .remove(&rel)
         .ok_or_else(|| anyhow!("cannot remove unknown virtual file: {}", rel))?;
-    store.write_virtual_tree(&tree)?;
-    store.append_workspace_op(WorkspaceOp {
-        id: 0,
-        change,
-        kind: OpKind::Remove,
-        path: rel.clone(),
-        new_path: None,
-        content: None,
-        class: removed.class.clone(),
-        created_at: now,
-    })?;
+    store.record_file_operation(
+        &tree,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Remove,
+            path: rel.clone(),
+            new_path: None,
+            content: None,
+            class: removed.class.clone(),
+            created_at: now,
+        },
+    )?;
     println!("Removed file: {}", rel);
     println!("Class: {}", removed.class);
     warn_secret(&removed.class);
@@ -143,17 +149,19 @@ pub fn rename(args: FileRename) -> Result<()> {
     entry.updated_at = now;
     let class = entry.class.clone();
     tree.files.insert(new.clone(), entry);
-    store.write_virtual_tree(&tree)?;
-    store.append_workspace_op(WorkspaceOp {
-        id: 0,
-        change,
-        kind: OpKind::Rename,
-        path: old.clone(),
-        new_path: Some(new.clone()),
-        content: None,
-        class: class.clone(),
-        created_at: now,
-    })?;
+    store.record_file_operation(
+        &tree,
+        WorkspaceOp {
+            id: 0,
+            change,
+            kind: OpKind::Rename,
+            path: old.clone(),
+            new_path: Some(new.clone()),
+            content: None,
+            class: class.clone(),
+            created_at: now,
+        },
+    )?;
     println!("Renamed file: {} -> {}", old, new);
     println!("Class: {}", class);
     warn_secret(&class);

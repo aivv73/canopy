@@ -39,6 +39,16 @@ The active change is a repository metadata pointer that decides where new worksp
 - `.canopy/workspace-ops.json`: durable operation log captured by `cnp file add`.
 - `.canopy/changes/*.json`: change records, optional correction metadata, promotion proposals, acceptance/publication timestamps.
 
+## Repository store boundary
+
+The repository store is the persistence contract. `LocalStore` is the current JSON-backed local MVP implementation of that boundary, not the final storage architecture. Backend selection for SQLite, `redb`, content-addressed storage, or compact encodings is deferred until the store contract and write groups are explicit.
+
+The store owns repository discovery, storage-format checks, record persistence, workspace-operation append semantics, and future transaction boundaries. Projection filtering, relation visibility, materialization safety, command output, and semantic workflow orchestration stay outside the store boundary.
+
+Important write groups are: initialize repository; start change; start corrective change; record file operation; finish change; propose change; accept change; publish or disclose change; abandon change; rebuild private virtual-tree cache. The JSON MVP may update multiple files non-transactionally, but future stores should treat these as named groups when adding atomicity.
+
+Workspace operations are semantically append-only even though the JSON MVP rewrites `workspace-ops.json`. The private virtual tree is a replay-validated cache for private materialization, not the authority for projection correctness.
+
 ## Projection model
 
 - Private projection includes the private virtual tree and accepted private history.
